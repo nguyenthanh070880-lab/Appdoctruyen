@@ -28,82 +28,84 @@ public class LoginFrame extends JFrame {
     private void initComponents() {
         setTitle("Đăng nhập - NovelApp");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(440, 420);
+        setSize(460, 500);
         setLocationRelativeTo(null);
         setResizable(false);
 
-        // Nền tổng
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(new Color(245, 247, 250));
 
-        // Card đăng nhập
-        JPanel card = new JPanel(new BorderLayout(15, 15));
+        // Card
+        JPanel card = new JPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 220, 220)),
-                BorderFactory.createEmptyBorder(30, 35, 30, 35)
+                BorderFactory.createEmptyBorder(30, 40, 30, 40)
         ));
 
-        // Tiêu đề
-        JLabel lblTitle = new JLabel("📚  NOVEL APP", SwingConstants.CENTER);
+        // Title
+        JLabel lblTitle = new JLabel("📚  NOVEL APP");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 26));
         lblTitle.setForeground(new Color(0, 102, 204));
+        lblTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel lblSubtitle = new JLabel("Đăng nhập để tiếp tục", SwingConstants.CENTER);
+        JLabel lblSubtitle = new JLabel("Đăng nhập để tiếp tục");
         lblSubtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblSubtitle.setForeground(Color.GRAY);
+        lblSubtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JPanel titlePanel = new JPanel();
-        titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
-        titlePanel.setOpaque(false);
-        titlePanel.add(lblTitle);
-        titlePanel.add(Box.createVerticalStrut(6));
-        titlePanel.add(lblSubtitle);
+        card.add(lblTitle);
+        card.add(Box.createVerticalStrut(6));
+        card.add(lblSubtitle);
+        card.add(Box.createVerticalStrut(25));
 
-        // Form
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 5, 10, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        // Username
+        JLabel lblUser = new JLabel("Username / Email");
+        lblUser.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(lblUser);
+        card.add(Box.createVerticalStrut(6));
 
-        gbc.gridx = 0; gbc.gridy = 0;
-        formPanel.add(new JLabel("Username / Email"), gbc);
-        gbc.gridx = 1;
-        txtUsername = new JTextField(20);
+        txtUsername = new JTextField();
+        txtUsername.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
         txtUsername.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtUsername.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(200, 200, 200)),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)
         ));
-        formPanel.add(txtUsername, gbc);
+        card.add(txtUsername);
+        card.add(Box.createVerticalStrut(15));
 
-        gbc.gridx = 0; gbc.gridy = 1;
-        formPanel.add(new JLabel("Mật khẩu"), gbc);
-        gbc.gridx = 1;
-        txtPassword = new JPasswordField(20);
+        // Password
+        JLabel lblPass = new JLabel("Mật khẩu");
+        lblPass.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(lblPass);
+        card.add(Box.createVerticalStrut(6));
+
+        txtPassword = new JPasswordField();
+        txtPassword.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
         txtPassword.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtPassword.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(200, 200, 200)),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)
         ));
-        formPanel.add(txtPassword, gbc);
+        card.add(txtPassword);
+        card.add(Box.createVerticalStrut(12));
 
-        gbc.gridx = 1; gbc.gridy = 2;
+        // Remember
         chkRemember = new JCheckBox("Ghi nhớ đăng nhập");
         chkRemember.setOpaque(false);
-        formPanel.add(chkRemember, gbc);
+        chkRemember.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(chkRemember);
+        card.add(Box.createVerticalStrut(25));
 
-        // Buttons
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
-        buttonPanel.setOpaque(false);
-
-        JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 5));
+        // ===== NÚT ĐĂNG NHẬP + ĐĂNG KÝ =====
+        JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         topButtons.setOpaque(false);
+        topButtons.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
         btnLogin = new JButton("Đăng nhập");
-        btnLogin.setPreferredSize(new Dimension(130, 40));
+        btnLogin.setPreferredSize(new Dimension(140, 42));
         btnLogin.setBackground(new Color(0, 102, 204));
         btnLogin.setForeground(Color.WHITE);
         btnLogin.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -112,14 +114,18 @@ public class LoginFrame extends JFrame {
         btnLogin.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         btnRegister = new JButton("Đăng ký");
-        btnRegister.setPreferredSize(new Dimension(130, 40));
+        btnRegister.setPreferredSize(new Dimension(140, 42));
         btnRegister.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         btnRegister.setFocusPainted(false);
         btnRegister.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnRegister.setBackground(new Color(240, 240, 240));
 
         topButtons.add(btnLogin);
         topButtons.add(btnRegister);
+        card.add(topButtons);
+        card.add(Box.createVerticalStrut(15));
 
+        // Quên mật khẩu
         JButton btnForgot = new JButton("Quên mật khẩu?");
         btnForgot.setFocusPainted(false);
         btnForgot.setBorderPainted(false);
@@ -131,16 +137,9 @@ public class LoginFrame extends JFrame {
             new ForgotPasswordFrame().setVisible(true);
             this.dispose();
         });
+        card.add(btnForgot);
 
-        buttonPanel.add(topButtons);
-        buttonPanel.add(Box.createVerticalStrut(10));
-        buttonPanel.add(btnForgot);
-
-        card.add(titlePanel, BorderLayout.NORTH);
-        card.add(formPanel, BorderLayout.CENTER);
-        card.add(buttonPanel, BorderLayout.SOUTH);
-
-        // Căn giữa card
+        // Căn giữa
         JPanel centerWrapper = new JPanel(new GridBagLayout());
         centerWrapper.setOpaque(false);
         centerWrapper.add(card);
@@ -154,6 +153,7 @@ public class LoginFrame extends JFrame {
             new RegisterFrame().setVisible(true);
             this.dispose();
         });
+
         getRootPane().setDefaultButton(btnLogin);
     }
 
