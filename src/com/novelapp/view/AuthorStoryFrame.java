@@ -31,24 +31,27 @@ public class AuthorStoryFrame extends JFrame {
     private void initComponents() {
         setTitle("Quản lý truyện - Tác giả");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1000, 600);
+        setSize(1050, 620);
         setLocationRelativeTo(null);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(new EmptyBorder(15, 20, 15, 20));
-        mainPanel.setBackground(Color.WHITE);
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(250, 250, 250));
 
-        // ===== Header =====
+        // Header
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setOpaque(false);
+        headerPanel.setBackground(new Color(0, 102, 204));
+        headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
 
-        JLabel lblTitle = new JLabel("Quản lý truyện của tôi");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        JLabel lblTitle = new JLabel("✍️  Quản lý truyện của tôi");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitle.setForeground(Color.WHITE);
 
         JButton btnAdd = new JButton("+ Thêm truyện mới");
         btnAdd.setFocusPainted(false);
         btnAdd.setBackground(new Color(0, 153, 76));
         btnAdd.setForeground(Color.WHITE);
+        btnAdd.setBorderPainted(false);
+        btnAdd.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAdd.addActionListener(e -> {
             new CreateStoryFrame().setVisible(true);
             this.dispose();
@@ -57,35 +60,36 @@ public class AuthorStoryFrame extends JFrame {
         headerPanel.add(lblTitle, BorderLayout.WEST);
         headerPanel.add(btnAdd, BorderLayout.EAST);
 
-        // ===== Table =====
+        // Table
         String[] columns = {"ID", "Tên truyện", "Trạng thái", "Kiểm duyệt", "Lượt xem", "Ngày tạo"};
         model = new DefaultTableModel(columns, 0) {
-            public boolean isCellEditable(int row, int column) { return false; }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(model);
-        table.setRowHeight(30);
+        table.setRowHeight(32);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
-
-        // Ẩn cột ID
+        table.getTableHeader().setBackground(new Color(0, 102, 204));
+        table.getTableHeader().setForeground(Color.WHITE);
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
 
-        JScrollPane scrollPane = new JScrollPane(table);
-
-        // ===== Nút dưới =====
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        bottomPanel.setOpaque(false);
+        // Buttons
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        bottomPanel.setBackground(Color.WHITE);
 
         JButton btnEdit = new JButton("Sửa truyện");
         JButton btnDelete = new JButton("Xóa truyện");
         JButton btnManageChapter = new JButton("Quản lý chương");
         JButton btnRefresh = new JButton("Làm mới");
-        JButton btnBack = new JButton("Quay lại");
+        JButton btnBack = new JButton("← Trang chủ");
+
+        btnDelete.setBackground(new Color(220, 53, 69));
+        btnDelete.setForeground(Color.WHITE);
+        btnDelete.setBorderPainted(false);
 
         btnEdit.setFocusPainted(false);
         btnDelete.setFocusPainted(false);
-        btnDelete.setBackground(new Color(220, 53, 69));
-        btnDelete.setForeground(Color.WHITE);
         btnManageChapter.setFocusPainted(false);
         btnRefresh.setFocusPainted(false);
         btnBack.setFocusPainted(false);
@@ -96,8 +100,7 @@ public class AuthorStoryFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, "Vui lòng chọn một truyện!");
                 return;
             }
-            int storyId = (int) table.getValueAt(row, 0);
-            new EditStoryFrame(storyId).setVisible(true);
+            new EditStoryFrame((int) table.getValueAt(row, 0)).setVisible(true);
             this.dispose();
         });
 
@@ -109,15 +112,13 @@ public class AuthorStoryFrame extends JFrame {
             }
             int storyId = (int) table.getValueAt(row, 0);
             String title = (String) table.getValueAt(row, 1);
-
             int confirm = JOptionPane.showConfirmDialog(this,
-                    "Bạn có chắc muốn XÓA truyện \"" + title + "\"?\n(Chỉ ẩn, không xóa vĩnh viễn)",
-                    "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
+                    "Xóa truyện \"" + title + "\"?", "Xác nhận", JOptionPane.YES_NO_OPTION);
             if (confirm != JOptionPane.YES_OPTION) return;
 
-            String sql = "UPDATE stories SET is_deleted = 1, updated_at = GETDATE() WHERE story_id = ? AND author_id = ?";
             try (Connection conn = DatabaseConnection.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                 PreparedStatement ps = conn.prepareStatement(
+                         "UPDATE stories SET is_deleted = 1, updated_at = GETDATE() WHERE story_id = ? AND author_id = ?")) {
                 ps.setInt(1, storyId);
                 ps.setInt(2, currentUser.getUserId());
                 ps.executeUpdate();
@@ -125,7 +126,6 @@ public class AuthorStoryFrame extends JFrame {
                 loadStories();
             } catch (SQLException ex) {
                 ex.printStackTrace();
-                JOptionPane.showMessageDialog(this, "Lỗi: " + ex.getMessage());
             }
         });
 
@@ -135,9 +135,7 @@ public class AuthorStoryFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, "Vui lòng chọn một truyện!");
                 return;
             }
-            int storyId = (int) table.getValueAt(row, 0);
-            String title = (String) table.getValueAt(row, 1);
-            new AuthorChapterFrame(storyId, title).setVisible(true);
+            new AuthorChapterFrame((int) table.getValueAt(row, 0), (String) table.getValueAt(row, 1)).setVisible(true);
             this.dispose();
         });
 
@@ -154,9 +152,8 @@ public class AuthorStoryFrame extends JFrame {
         bottomPanel.add(btnBack);
 
         mainPanel.add(headerPanel, BorderLayout.NORTH);
-        mainPanel.add(scrollPane, BorderLayout.CENTER);
+        mainPanel.add(new JScrollPane(table), BorderLayout.CENTER);
         mainPanel.add(bottomPanel, BorderLayout.SOUTH);
-
         add(mainPanel);
     }
 
@@ -164,12 +161,9 @@ public class AuthorStoryFrame extends JFrame {
         model.setRowCount(0);
         String sql = "SELECT story_id, title, status, moderation_status, view_count, created_at "
                    + "FROM stories WHERE author_id = ? AND is_deleted = 0 ORDER BY created_at DESC";
-
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            
             ps.setInt(1, currentUser.getUserId());
-            
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     model.addRow(new Object[]{

@@ -30,27 +30,42 @@ public class RankingFrame extends JFrame {
     private void initComponents() {
         setTitle("Bảng xếp hạng & Đề xuất - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(950, 650);
+        setSize(1000, 700);
         setLocationRelativeTo(null);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 15));
-        mainPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
-        mainPanel.setBackground(Color.WHITE);
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(250, 250, 250));
 
-        JLabel lblTitle = new JLabel("Bảng xếp hạng & Đề xuất");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(0, 102, 204));
+        headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
 
-        // Nút chuyển loại xếp hạng
-        JPanel tabPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        tabPanel.setOpaque(false);
+        JLabel lblTitle = new JLabel("🏆  Bảng xếp hạng & Đề xuất");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitle.setForeground(Color.WHITE);
 
-        JButton btnView = new JButton("Top Lượt xem");
-        JButton btnRating = new JButton("Top Đánh giá");
-        JButton btnRecommend = new JButton("Đề xuất cho bạn");
+        JButton btnBack = new JButton("← Trang chủ");
+        btnBack.setFocusPainted(false);
+        btnBack.setBackground(Color.WHITE);
+        btnBack.setForeground(new Color(0, 102, 204));
+        btnBack.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnBack.addActionListener(e -> {
+            new HomeFrame().setVisible(true);
+            this.dispose();
+        });
 
-        btnView.setFocusPainted(false);
-        btnRating.setFocusPainted(false);
-        btnRecommend.setFocusPainted(false);
+        headerPanel.add(lblTitle, BorderLayout.WEST);
+        headerPanel.add(btnBack, BorderLayout.EAST);
+
+        // Tabs
+        JPanel tabPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
+        tabPanel.setBackground(Color.WHITE);
+        tabPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(220, 220, 220)));
+
+        JButton btnView = createTabButton("Top Lượt xem");
+        JButton btnRating = createTabButton("Top Đánh giá");
+        JButton btnRecommend = createTabButton("Đề xuất cho bạn");
 
         btnView.addActionListener(e -> loadRanking("view"));
         btnRating.addActionListener(e -> loadRanking("rating"));
@@ -60,35 +75,32 @@ public class RankingFrame extends JFrame {
         tabPanel.add(btnRating);
         tabPanel.add(btnRecommend);
 
+        // Content
         contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBackground(Color.WHITE);
+        contentPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
 
         JScrollPane scrollPane = new JScrollPane(contentPanel);
         scrollPane.setBorder(null);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(18);
 
-        JButton btnBack = new JButton("Quay lại trang chủ");
-        btnBack.setFocusPainted(false);
-        btnBack.addActionListener(e -> {
-            new HomeFrame().setVisible(true);
-            this.dispose();
-        });
-
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        bottomPanel.setOpaque(false);
-        bottomPanel.add(btnBack);
-
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.setOpaque(false);
-        topPanel.add(lblTitle, BorderLayout.NORTH);
-        topPanel.add(tabPanel, BorderLayout.SOUTH);
-
-        mainPanel.add(topPanel, BorderLayout.NORTH);
-        mainPanel.add(scrollPane, BorderLayout.CENTER);
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+        
+        JPanel center = new JPanel(new BorderLayout());
+        center.add(tabPanel, BorderLayout.NORTH);
+        center.add(scrollPane, BorderLayout.CENTER);
+        mainPanel.add(center, BorderLayout.CENTER);
 
         add(mainPanel);
+    }
+
+    private JButton createTabButton(String text) {
+        JButton btn = new JButton(text);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        return btn;
     }
 
     private void loadRanking(String type) {
@@ -112,10 +124,10 @@ public class RankingFrame extends JFrame {
         }
 
         JLabel lbl = new JLabel(title);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 17));
         lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
         contentPanel.add(lbl);
-        contentPanel.add(Box.createVerticalStrut(15));
+        contentPanel.add(Box.createVerticalStrut(18));
 
         if (stories.isEmpty()) {
             contentPanel.add(new JLabel("Chưa có dữ liệu."));
@@ -134,53 +146,53 @@ public class RankingFrame extends JFrame {
 
     private JPanel createRankCard(int rank, Story story) {
         JPanel card = new JPanel(new BorderLayout(15, 5));
-        card.setBackground(new Color(250, 250, 250));
+        card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(220, 220, 220)),
-                new EmptyBorder(12, 15, 12, 15)
+                BorderFactory.createLineBorder(new Color(230, 230, 230)),
+                new EmptyBorder(14, 18, 14, 18)
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 95));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Số xếp hạng
         JLabel lblRank = new JLabel("#" + rank);
         lblRank.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblRank.setForeground(rank <= 3 ? new Color(220, 53, 69) : new Color(100, 100, 100));
-        lblRank.setPreferredSize(new Dimension(50, 0));
+        lblRank.setPreferredSize(new Dimension(55, 0));
 
-        JPanel infoPanel = new JPanel();
-        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
-        infoPanel.setOpaque(false);
+        JPanel info = new JPanel();
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+        info.setOpaque(false);
 
         JLabel lblTitle = new JLabel(story.getTitle());
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
-
         JLabel lblAuthor = new JLabel("Tác giả: " + story.getAuthorName());
         lblAuthor.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblAuthor.setForeground(Color.DARK_GRAY);
-
-        JLabel lblMeta = new JLabel(String.format("Lượt xem: %,d  |  %.1f★ (%d đánh giá)",
+        lblAuthor.setForeground(Color.GRAY);
+        JLabel lblMeta = new JLabel(String.format("👁 %,d   |   ★ %.1f (%d đánh giá)",
                 story.getViewCount(), story.getRatingAvg(), story.getRatingCount()));
         lblMeta.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblMeta.setForeground(Color.GRAY);
+        lblMeta.setForeground(new Color(130, 130, 130));
 
-        infoPanel.add(lblTitle);
-        infoPanel.add(Box.createVerticalStrut(3));
-        infoPanel.add(lblAuthor);
-        infoPanel.add(Box.createVerticalStrut(3));
-        infoPanel.add(lblMeta);
+        info.add(lblTitle);
+        info.add(Box.createVerticalStrut(4));
+        info.add(lblAuthor);
+        info.add(Box.createVerticalStrut(4));
+        info.add(lblMeta);
 
-        JButton btnDetail = new JButton("Xem");
-        btnDetail.setFocusPainted(false);
-        btnDetail.addActionListener(e -> {
+        JButton btn = new JButton("Xem");
+        btn.setFocusPainted(false);
+        btn.setBackground(new Color(0, 102, 204));
+        btn.setForeground(Color.WHITE);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(e -> {
             new StoryDetailFrame(story.getStoryId()).setVisible(true);
             this.dispose();
         });
 
         card.add(lblRank, BorderLayout.WEST);
-        card.add(infoPanel, BorderLayout.CENTER);
-        card.add(btnDetail, BorderLayout.EAST);
-
+        card.add(info, BorderLayout.CENTER);
+        card.add(btn, BorderLayout.EAST);
         return card;
     }
 }

@@ -16,13 +16,11 @@ public class AuthorChapterFrame extends JFrame {
     private final int storyId;
     private final String storyTitle;
     private DefaultTableModel model;
-    private JTable table;
 
     public AuthorChapterFrame(int storyId, String storyTitle) {
         this.currentUser = SessionManager.getCurrentUser();
         this.storyId = storyId;
         this.storyTitle = storyTitle;
-
         if (currentUser == null) {
             new LoginFrame().setVisible(true);
             this.dispose();
@@ -35,95 +33,90 @@ public class AuthorChapterFrame extends JFrame {
     private void initComponents() {
         setTitle("Quản lý chương - " + storyTitle);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(950, 550);
+        setSize(1000, 580);
         setLocationRelativeTo(null);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(new EmptyBorder(15, 20, 15, 20));
+        JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(Color.WHITE);
 
-        // Header
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setOpaque(false);
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(0, 102, 204));
+        header.setBorder(new EmptyBorder(15, 25, 15, 25));
 
-        JLabel lblTitle = new JLabel("Chương của truyện: " + storyTitle);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        JLabel lbl = new JLabel("📖  Chương của: " + storyTitle);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lbl.setForeground(Color.WHITE);
 
         JButton btnAdd = new JButton("+ Thêm chương");
-        btnAdd.setFocusPainted(false);
         btnAdd.setBackground(new Color(0, 153, 76));
         btnAdd.setForeground(Color.WHITE);
+        btnAdd.setFocusPainted(false);
+        btnAdd.setBorderPainted(false);
+        btnAdd.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAdd.addActionListener(e -> {
             new CreateChapterFrame(storyId, storyTitle).setVisible(true);
             this.dispose();
         });
 
-        headerPanel.add(lblTitle, BorderLayout.WEST);
-        headerPanel.add(btnAdd, BorderLayout.EAST);
+        header.add(lbl, BorderLayout.WEST);
+        header.add(btnAdd, BorderLayout.EAST);
 
-        // Table
         String[] columns = {"ID", "Số chương", "Tiêu đề", "Miễn phí", "Giá Coin", "Trạng thái", "Ngày tạo"};
         model = new DefaultTableModel(columns, 0) {
-            public boolean isCellEditable(int row, int column) { return false; }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
-        table = new JTable(model);
-        table.setRowHeight(28);
+        JTable table = new JTable(model);
+        table.setRowHeight(30);
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
-
+        table.getTableHeader().setBackground(new Color(0, 102, 204));
+        table.getTableHeader().setForeground(Color.WHITE);
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
 
-        // Buttons
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        bottomPanel.setOpaque(false);
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        bottom.setBackground(Color.WHITE);
 
         JButton btnEdit = new JButton("Sửa chương");
         JButton btnDelete = new JButton("Xóa chương");
         JButton btnRefresh = new JButton("Làm mới");
-        JButton btnBack = new JButton("Quay lại");
+        JButton btnBack = new JButton("← Quay lại");
+
+        btnDelete.setBackground(new Color(220, 53, 69));
+        btnDelete.setForeground(Color.WHITE);
+        btnDelete.setBorderPainted(false);
 
         btnEdit.setFocusPainted(false);
         btnDelete.setFocusPainted(false);
-        btnDelete.setBackground(new Color(220, 53, 69));
-        btnDelete.setForeground(Color.WHITE);
         btnRefresh.setFocusPainted(false);
         btnBack.setFocusPainted(false);
 
         btnEdit.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn một chương!");
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn chương!");
                 return;
             }
-            int chapterId = (int) table.getValueAt(row, 0);
-            new EditChapterFrame(chapterId, storyId, storyTitle).setVisible(true);
+            new EditChapterFrame((int) table.getValueAt(row, 0), storyId, storyTitle).setVisible(true);
             this.dispose();
         });
 
         btnDelete.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row < 0) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn một chương!");
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn chương!");
                 return;
             }
             int chapterId = (int) table.getValueAt(row, 0);
             String title = (String) table.getValueAt(row, 2);
-
-            int confirm = JOptionPane.showConfirmDialog(this,
-                    "Bạn có chắc muốn XÓA chương \"" + title + "\"?\n(Chỉ ẩn, không xóa vĩnh viễn)",
-                    "Xác nhận xóa", JOptionPane.YES_NO_OPTION);
+            int confirm = JOptionPane.showConfirmDialog(this, "Xóa chương \"" + title + "\"?", "Xác nhận", JOptionPane.YES_NO_OPTION);
             if (confirm != JOptionPane.YES_OPTION) return;
-
-            String sql = "UPDATE chapters SET is_deleted = 1, updated_at = GETDATE() WHERE chapter_id = ?";
             try (Connection conn = DatabaseConnection.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                 PreparedStatement ps = conn.prepareStatement("UPDATE chapters SET is_deleted = 1, updated_at = GETDATE() WHERE chapter_id = ?")) {
                 ps.setInt(1, chapterId);
                 ps.executeUpdate();
-                JOptionPane.showMessageDialog(this, "Đã xóa chương!");
                 loadChapters();
             } catch (SQLException ex) {
                 ex.printStackTrace();
-                JOptionPane.showMessageDialog(this, "Lỗi: " + ex.getMessage());
             }
         });
 
@@ -133,38 +126,30 @@ public class AuthorChapterFrame extends JFrame {
             this.dispose();
         });
 
-        bottomPanel.add(btnEdit);
-        bottomPanel.add(btnDelete);
-        bottomPanel.add(btnRefresh);
-        bottomPanel.add(btnBack);
+        bottom.add(btnEdit);
+        bottom.add(btnDelete);
+        bottom.add(btnRefresh);
+        bottom.add(btnBack);
 
-        mainPanel.add(headerPanel, BorderLayout.NORTH);
+        mainPanel.add(header, BorderLayout.NORTH);
         mainPanel.add(new JScrollPane(table), BorderLayout.CENTER);
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
-
+        mainPanel.add(bottom, BorderLayout.SOUTH);
         add(mainPanel);
     }
 
     private void loadChapters() {
         model.setRowCount(0);
         String sql = "SELECT chapter_id, chapter_number, title, is_free, price_coin, moderation_status, created_at "
-                   + "FROM chapters WHERE story_id = ? AND is_deleted = 0 ORDER BY chapter_number ASC";
-
+                   + "FROM chapters WHERE story_id = ? AND is_deleted = 0 ORDER BY chapter_number";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            
             ps.setInt(1, storyId);
-            
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     model.addRow(new Object[]{
-                        rs.getInt("chapter_id"),
-                        rs.getDouble("chapter_number"),
-                        rs.getString("title"),
-                        rs.getBoolean("is_free") ? "Có" : "Không",
-                        rs.getInt("price_coin"),
-                        rs.getString("moderation_status"),
-                        rs.getTimestamp("created_at")
+                        rs.getInt(1), rs.getDouble(2), rs.getString(3),
+                        rs.getBoolean(4) ? "Có" : "Không",
+                        rs.getInt(5), rs.getString(6), rs.getTimestamp(7)
                     });
                 }
             }

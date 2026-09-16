@@ -19,7 +19,7 @@ public class AdminGenreFrame extends JFrame {
     public AdminGenreFrame() {
         this.currentUser = SessionManager.getCurrentUser();
         if (currentUser == null || !currentUser.hasRole("ADMIN")) {
-            JOptionPane.showMessageDialog(null, "Bạn không có quyền Admin!");
+            JOptionPane.showMessageDialog(null, "Bạn không có quyền!");
             new HomeFrame().setVisible(true);
             this.dispose();
             return;
@@ -31,33 +31,39 @@ public class AdminGenreFrame extends JFrame {
     private void initComponents() {
         setTitle("Quản lý Thể loại - Admin");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(700, 500);
+        setSize(750, 520);
         setLocationRelativeTo(null);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-        mainPanel.setBorder(new EmptyBorder(15, 20, 15, 20));
+        JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(Color.WHITE);
 
-        JLabel lblTitle = new JLabel("Quản lý Thể loại / Hashtag");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(0, 102, 204));
+        header.setBorder(new EmptyBorder(15, 25, 15, 25));
+        JLabel lbl = new JLabel("🏷️  Quản lý Thể loại");
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lbl.setForeground(Color.WHITE);
+        header.add(lbl, BorderLayout.WEST);
 
         String[] columns = {"ID", "Tên thể loại", "Mô tả", "Trạng thái"};
         model = new DefaultTableModel(columns, 0) {
-            public boolean isCellEditable(int row, int column) { return false; }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(model);
-        table.setRowHeight(28);
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        table.setRowHeight(30);
+        table.getTableHeader().setBackground(new Color(0, 102, 204));
+        table.getTableHeader().setForeground(Color.WHITE);
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        buttonPanel.setOpaque(false);
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        bottom.setBackground(Color.WHITE);
 
-        JButton btnAdd = new JButton("+ Thêm thể loại");
+        JButton btnAdd = new JButton("+ Thêm");
         btnAdd.setBackground(new Color(0, 153, 76));
         btnAdd.setForeground(Color.WHITE);
         btnAdd.setFocusPainted(false);
+        btnAdd.setBorderPainted(false);
         btnAdd.addActionListener(e -> addGenre());
 
         JButton btnEdit = new JButton("Sửa");
@@ -72,38 +78,34 @@ public class AdminGenreFrame extends JFrame {
         btnRefresh.setFocusPainted(false);
         btnRefresh.addActionListener(e -> loadGenres());
 
-        JButton btnBack = new JButton("Quay lại");
+        JButton btnBack = new JButton("← Dashboard");
         btnBack.setFocusPainted(false);
         btnBack.addActionListener(e -> {
             new AdminDashboardFrame().setVisible(true);
             this.dispose();
         });
 
-        buttonPanel.add(btnAdd);
-        buttonPanel.add(btnEdit);
-        buttonPanel.add(btnToggle);
-        buttonPanel.add(btnRefresh);
-        buttonPanel.add(btnBack);
+        bottom.add(btnAdd);
+        bottom.add(btnEdit);
+        bottom.add(btnToggle);
+        bottom.add(btnRefresh);
+        bottom.add(btnBack);
 
-        mainPanel.add(lblTitle, BorderLayout.NORTH);
+        mainPanel.add(header, BorderLayout.NORTH);
         mainPanel.add(new JScrollPane(table), BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-
+        mainPanel.add(bottom, BorderLayout.SOUTH);
         add(mainPanel);
     }
 
     private void loadGenres() {
         model.setRowCount(0);
-        String sql = "SELECT genre_id, genre_name, description, is_active FROM genres ORDER BY genre_name";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
+             PreparedStatement ps = conn.prepareStatement("SELECT genre_id, genre_name, description, is_active FROM genres ORDER BY genre_name");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 model.addRow(new Object[]{
-                    rs.getInt("genre_id"),
-                    rs.getString("genre_name"),
-                    rs.getString("description"),
-                    rs.getBoolean("is_active") ? "Hiện" : "Ẩn"
+                    rs.getInt(1), rs.getString(2), rs.getString(3),
+                    rs.getBoolean(4) ? "Hiện" : "Ẩn"
                 });
             }
         } catch (SQLException e) {
@@ -114,88 +116,53 @@ public class AdminGenreFrame extends JFrame {
     private void addGenre() {
         JTextField txtName = new JTextField();
         JTextField txtDesc = new JTextField();
-        JPanel panel = new JPanel(new GridLayout(2, 2, 5, 5));
-        panel.add(new JLabel("Tên thể loại:"));
-        panel.add(txtName);
-        panel.add(new JLabel("Mô tả:"));
-        panel.add(txtDesc);
-
-        int result = JOptionPane.showConfirmDialog(this, panel, "Thêm thể loại mới",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result != JOptionPane.OK_OPTION) return;
-
-        String name = txtName.getText().trim();
-        if (name.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Tên thể loại không được để trống!");
-            return;
-        }
-
-        String sql = "INSERT INTO genres (genre_name, description) VALUES (?, ?)";
+        JPanel p = new JPanel(new GridLayout(2, 2, 5, 5));
+        p.add(new JLabel("Tên:")); p.add(txtName);
+        p.add(new JLabel("Mô tả:")); p.add(txtDesc);
+        if (JOptionPane.showConfirmDialog(this, p, "Thêm thể loại", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
+        if (txtName.getText().trim().isEmpty()) return;
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, name);
+             PreparedStatement ps = conn.prepareStatement("INSERT INTO genres (genre_name, description) VALUES (?, ?)")) {
+            ps.setString(1, txtName.getText().trim());
             ps.setString(2, txtDesc.getText().trim());
             ps.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Thêm thành công!");
             loadGenres();
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());
         }
     }
 
     private void editGenre() {
         int row = table.getSelectedRow();
-        if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một thể loại!");
-            return;
-        }
-        int genreId = (int) table.getValueAt(row, 0);
-        String oldName = (String) table.getValueAt(row, 1);
-        String oldDesc = (String) table.getValueAt(row, 2);
-
-        JTextField txtName = new JTextField(oldName);
-        JTextField txtDesc = new JTextField(oldDesc != null ? oldDesc : "");
-        JPanel panel = new JPanel(new GridLayout(2, 2, 5, 5));
-        panel.add(new JLabel("Tên thể loại:"));
-        panel.add(txtName);
-        panel.add(new JLabel("Mô tả:"));
-        panel.add(txtDesc);
-
-        int result = JOptionPane.showConfirmDialog(this, panel, "Sửa thể loại",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        if (result != JOptionPane.OK_OPTION) return;
-
-        String sql = "UPDATE genres SET genre_name = ?, description = ?, updated_at = GETDATE() WHERE genre_id = ?";
+        if (row < 0) return;
+        int id = (int) table.getValueAt(row, 0);
+        JTextField txtName = new JTextField((String) table.getValueAt(row, 1));
+        JTextField txtDesc = new JTextField((String) table.getValueAt(row, 2));
+        JPanel p = new JPanel(new GridLayout(2, 2, 5, 5));
+        p.add(new JLabel("Tên:")); p.add(txtName);
+        p.add(new JLabel("Mô tả:")); p.add(txtDesc);
+        if (JOptionPane.showConfirmDialog(this, p, "Sửa thể loại", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement("UPDATE genres SET genre_name=?, description=?, updated_at=GETDATE() WHERE genre_id=?")) {
             ps.setString(1, txtName.getText().trim());
             ps.setString(2, txtDesc.getText().trim());
-            ps.setInt(3, genreId);
+            ps.setInt(3, id);
             ps.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
             loadGenres();
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());
         }
     }
 
     private void toggleActive() {
         int row = table.getSelectedRow();
-        if (row < 0) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn một thể loại!");
-            return;
-        }
-        int genreId = (int) table.getValueAt(row, 0);
-        String status = (String) table.getValueAt(row, 3);
-        boolean newActive = status.equals("Ẩn");
-
-        String sql = "UPDATE genres SET is_active = ?, updated_at = GETDATE() WHERE genre_id = ?";
+        if (row < 0) return;
+        int id = (int) table.getValueAt(row, 0);
+        boolean newActive = "Ẩn".equals(table.getValueAt(row, 3));
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement("UPDATE genres SET is_active=?, updated_at=GETDATE() WHERE genre_id=?")) {
             ps.setBoolean(1, newActive);
-            ps.setInt(2, genreId);
+            ps.setInt(2, id);
             ps.executeUpdate();
             loadGenres();
         } catch (SQLException e) {

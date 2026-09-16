@@ -34,114 +34,164 @@ public class ProfileFrame extends JFrame {
     private void initComponents() {
         setTitle("Hồ sơ cá nhân - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(550, 580);
+        setSize(560, 620);
         setLocationRelativeTo(null);
         setResizable(false);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(15, 15));
-        mainPanel.setBorder(new EmptyBorder(20, 30, 20, 30));
-        mainPanel.setBackground(Color.WHITE);
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(245, 247, 250));
 
-        JLabel lblTitle = new JLabel("Hồ sơ cá nhân");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(0, 102, 204));
+        headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
 
-        // ===== Form thông tin =====
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 5, 8, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        JLabel lblTitle = new JLabel("👤  Hồ sơ cá nhân");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitle.setForeground(Color.WHITE);
 
-        // Username (không cho sửa)
-        gbc.gridx = 0; gbc.gridy = 0;
-        formPanel.add(new JLabel("Username:"), gbc);
-        gbc.gridx = 1;
-        JTextField txtUsername = new JTextField(currentUser.getUsername());
-        txtUsername.setEditable(false);
-        txtUsername.setBackground(new Color(240, 240, 240));
-        formPanel.add(txtUsername, gbc);
-
-        // Họ tên
-        gbc.gridx = 0; gbc.gridy = 1;
-        formPanel.add(new JLabel("Họ và tên:"), gbc);
-        gbc.gridx = 1;
-        txtFullName = new JTextField(25);
-        formPanel.add(txtFullName, gbc);
-
-        // Email
-        gbc.gridx = 0; gbc.gridy = 2;
-        formPanel.add(new JLabel("Email:"), gbc);
-        gbc.gridx = 1;
-        txtEmail = new JTextField(25);
-        formPanel.add(txtEmail, gbc);
-
-        // Số điện thoại
-        gbc.gridx = 0; gbc.gridy = 3;
-        formPanel.add(new JLabel("Số điện thoại:"), gbc);
-        gbc.gridx = 1;
-        txtPhone = new JTextField(25);
-        formPanel.add(txtPhone, gbc);
-
-        // ===== Đổi mật khẩu =====
-        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
-        formPanel.add(Box.createVerticalStrut(15), gbc);
-
-        gbc.gridy = 5;
-        JLabel lblChangePass = new JLabel("— Đổi mật khẩu —");
-        lblChangePass.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        formPanel.add(lblChangePass, gbc);
-
-        gbc.gridwidth = 1;
-        gbc.gridx = 0; gbc.gridy = 6;
-        formPanel.add(new JLabel("Mật khẩu cũ:"), gbc);
-        gbc.gridx = 1;
-        txtOldPassword = new JPasswordField(25);
-        formPanel.add(txtOldPassword, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 7;
-        formPanel.add(new JLabel("Mật khẩu mới:"), gbc);
-        gbc.gridx = 1;
-        txtNewPassword = new JPasswordField(25);
-        formPanel.add(txtNewPassword, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 8;
-        formPanel.add(new JLabel("Xác nhận mật khẩu:"), gbc);
-        gbc.gridx = 1;
-        txtConfirmPassword = new JPasswordField(25);
-        formPanel.add(txtConfirmPassword, gbc);
-
-        // ===== Buttons =====
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        buttonPanel.setOpaque(false);
-
-        JButton btnDeleteAccount = new JButton("Xóa tài khoản");
-        btnDeleteAccount.setBackground(new Color(220, 53, 69));
-        btnDeleteAccount.setForeground(Color.WHITE);
-        btnDeleteAccount.setFocusPainted(false);
-        btnDeleteAccount.addActionListener(e -> deleteAccount());
-
-        JButton btnSave = new JButton("Lưu thay đổi");
-        btnSave.setBackground(new Color(0, 102, 204));
-        btnSave.setForeground(Color.WHITE);
-        btnSave.setFocusPainted(false);
-        btnSave.addActionListener(e -> saveProfile());
-
-        JButton btnBack = new JButton("Quay lại");
+        JButton btnBack = new JButton("← Trang chủ");
         btnBack.setFocusPainted(false);
+        btnBack.setBackground(Color.WHITE);
+        btnBack.setForeground(new Color(0, 102, 204));
+        btnBack.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnBack.addActionListener(e -> {
             new HomeFrame().setVisible(true);
             this.dispose();
         });
 
-        buttonPanel.add(btnDeleteAccount);
+        headerPanel.add(lblTitle, BorderLayout.WEST);
+        headerPanel.add(btnBack, BorderLayout.EAST);
+
+        // Form
+        JPanel card = new JPanel(new BorderLayout(10, 15));
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)),
+                new EmptyBorder(25, 30, 25, 30)
+        ));
+
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Username (readonly)
+        gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.EAST;
+        formPanel.add(new JLabel("Username:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        JTextField txtUsername = new JTextField(currentUser.getUsername());
+        txtUsername.setEditable(false);
+        txtUsername.setBackground(new Color(240, 240, 240));
+        txtUsername.setPreferredSize(new Dimension(250, 36));
+        formPanel.add(txtUsername, gbc);
+
+        // Full name
+        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0; gbc.anchor = GridBagConstraints.EAST;
+        formPanel.add(new JLabel("Họ và tên:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        txtFullName = createField();
+        formPanel.add(txtFullName, gbc);
+
+        // Email
+        gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0;
+        formPanel.add(new JLabel("Email:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        txtEmail = createField();
+        formPanel.add(txtEmail, gbc);
+
+        // Phone
+        gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0;
+        formPanel.add(new JLabel("Số điện thoại:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        txtPhone = createField();
+        formPanel.add(txtPhone, gbc);
+
+        // Separator
+        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
+        formPanel.add(Box.createVerticalStrut(10), gbc);
+
+        gbc.gridy = 5;
+        JLabel lblPass = new JLabel("— Đổi mật khẩu —");
+        lblPass.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        formPanel.add(lblPass, gbc);
+
+        gbc.gridwidth = 1;
+        gbc.gridx = 0; gbc.gridy = 6; gbc.weightx = 0;
+        formPanel.add(new JLabel("Mật khẩu cũ:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        txtOldPassword = createPasswordField();
+        formPanel.add(txtOldPassword, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 7; gbc.weightx = 0;
+        formPanel.add(new JLabel("Mật khẩu mới:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        txtNewPassword = createPasswordField();
+        formPanel.add(txtNewPassword, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 8; gbc.weightx = 0;
+        formPanel.add(new JLabel("Xác nhận mật khẩu:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0;
+        txtConfirmPassword = createPasswordField();
+        formPanel.add(txtConfirmPassword, gbc);
+
+        card.add(formPanel, BorderLayout.CENTER);
+
+        // Buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 5));
+        buttonPanel.setOpaque(false);
+
+        JButton btnDelete = new JButton("Xóa tài khoản");
+        btnDelete.setBackground(new Color(220, 53, 69));
+        btnDelete.setForeground(Color.WHITE);
+        btnDelete.setFocusPainted(false);
+        btnDelete.setBorderPainted(false);
+        btnDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnDelete.addActionListener(e -> deleteAccount());
+
+        JButton btnSave = new JButton("Lưu thay đổi");
+        btnSave.setPreferredSize(new Dimension(140, 40));
+        btnSave.setBackground(new Color(0, 102, 204));
+        btnSave.setForeground(Color.WHITE);
+        btnSave.setFocusPainted(false);
+        btnSave.setBorderPainted(false);
+        btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnSave.addActionListener(e -> saveProfile());
+
+        buttonPanel.add(btnDelete);
         buttonPanel.add(btnSave);
-        buttonPanel.add(btnBack);
+        card.add(buttonPanel, BorderLayout.SOUTH);
 
-        mainPanel.add(lblTitle, BorderLayout.NORTH);
-        mainPanel.add(formPanel, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+        JPanel centerWrapper = new JPanel(new GridBagLayout());
+        centerWrapper.setOpaque(false);
+        centerWrapper.add(card);
 
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
+        mainPanel.add(centerWrapper, BorderLayout.CENTER);
         add(mainPanel);
+    }
+
+    private JTextField createField() {
+        JTextField tf = new JTextField(20);
+        tf.setPreferredSize(new Dimension(250, 36));
+        tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        tf.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                new EmptyBorder(6, 10, 6, 10)
+        ));
+        return tf;
+    }
+
+    private JPasswordField createPasswordField() {
+        JPasswordField pf = new JPasswordField(20);
+        pf.setPreferredSize(new Dimension(250, 36));
+        pf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        pf.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                new EmptyBorder(6, 10, 6, 10)
+        ));
+        return pf;
     }
 
     private void loadUserInfo() {
@@ -159,16 +209,13 @@ public class ProfileFrame extends JFrame {
         String confirmPass = new String(txtConfirmPassword.getPassword());
 
         if (fullName.isEmpty() || email.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Họ tên và Email không được để trống!", 
-                    "Lỗi", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Họ tên và Email không được để trống!");
             return;
         }
 
-        // Cập nhật thông tin cơ bản
-        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = GETDATE() WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
+             PreparedStatement ps = conn.prepareStatement(
+                     "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = GETDATE() WHERE user_id = ?")) {
             ps.setString(1, fullName);
             ps.setString(2, email);
             ps.setString(3, phone.isEmpty() ? null : phone);
@@ -176,44 +223,35 @@ public class ProfileFrame extends JFrame {
             ps.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi cập nhật thông tin: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "Lỗi cập nhật thông tin!");
             return;
         }
 
-        // Đổi mật khẩu (nếu có nhập)
         if (!oldPass.isEmpty() || !newPass.isEmpty() || !confirmPass.isEmpty()) {
             if (oldPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin đổi mật khẩu!", 
-                        "Lỗi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin đổi mật khẩu!");
                 return;
             }
             if (!newPass.equals(confirmPass)) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!", 
-                        "Lỗi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!");
                 return;
             }
             if (newPass.length() < 6) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu mới phải có ít nhất 6 ký tự!", 
-                        "Lỗi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Mật khẩu mới phải có ít nhất 6 ký tự!");
                 return;
             }
-
-            // Kiểm tra mật khẩu cũ
             if (!PasswordUtil.checkPassword(oldPass, currentUser.getPasswordHash())) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu cũ không đúng!", 
-                        "Lỗi", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Mật khẩu cũ không đúng!");
                 return;
             }
 
-            // Cập nhật mật khẩu mới
             String newHash = PasswordUtil.hashPassword(newPass);
-            String sqlPass = "UPDATE users SET password_hash = ?, updated_at = GETDATE() WHERE user_id = ?";
             try (Connection conn = DatabaseConnection.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(sqlPass)) {
+                 PreparedStatement ps = conn.prepareStatement(
+                         "UPDATE users SET password_hash = ?, updated_at = GETDATE() WHERE user_id = ?")) {
                 ps.setString(1, newHash);
                 ps.setInt(2, currentUser.getUserId());
                 ps.executeUpdate();
-                
                 currentUser.setPasswordHash(newHash);
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -222,7 +260,6 @@ public class ProfileFrame extends JFrame {
             }
         }
 
-        // Cập nhật session
         currentUser.setFullName(fullName);
         currentUser.setEmail(email);
         currentUser.setPhone(phone);
@@ -236,13 +273,9 @@ public class ProfileFrame extends JFrame {
     private void deleteAccount() {
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Bạn có CHẮC CHẮN muốn xóa tài khoản?\nHành động này không thể hoàn tác!",
-                "Xác nhận xóa tài khoản",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
+                "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        // Xác nhận lần 2 bằng mật khẩu
         String password = JOptionPane.showInputDialog(this, "Nhập mật khẩu để xác nhận xóa:");
         if (password == null || password.isEmpty()) return;
 
@@ -251,9 +284,9 @@ public class ProfileFrame extends JFrame {
             return;
         }
 
-        String sql = "UPDATE users SET is_deleted = 1, status = 'BANNED', updated_at = GETDATE() WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(
+                     "UPDATE users SET is_deleted = 1, status = 'BANNED', updated_at = GETDATE() WHERE user_id = ?")) {
             ps.setInt(1, currentUser.getUserId());
             ps.executeUpdate();
 
@@ -261,9 +294,9 @@ public class ProfileFrame extends JFrame {
             SessionManager.logout();
             new LoginFrame().setVisible(true);
             this.dispose();
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi: " + ex.getMessage());
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());
         }
     }
 }

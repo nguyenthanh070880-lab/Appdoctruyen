@@ -1,7 +1,6 @@
 package com.novelapp.view;
 
 import com.novelapp.dao.CoinPackageDAO;
-import com.novelapp.dao.WalletDAO;
 import com.novelapp.model.CoinPackage;
 import com.novelapp.model.User;
 import com.novelapp.util.SessionManager;
@@ -12,13 +11,11 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.sql.*;
 import java.util.List;
-import java.util.UUID;
 
 public class DepositFrame extends JFrame {
 
     private final User currentUser;
     private final CoinPackageDAO packageDAO = new CoinPackageDAO();
-    private final WalletDAO walletDAO = new WalletDAO();
 
     public DepositFrame() {
         this.currentUser = SessionManager.getCurrentUser();
@@ -33,22 +30,41 @@ public class DepositFrame extends JFrame {
     private void initComponents() {
         setTitle("Nạp Coin - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(700, 500);
+        setSize(750, 550);
         setLocationRelativeTo(null);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(15, 15));
-        mainPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
-        mainPanel.setBackground(Color.WHITE);
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(250, 250, 250));
 
-        JLabel lblTitle = new JLabel("Chọn gói Coin");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(0, 102, 204));
+        headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
 
+        JLabel lblTitle = new JLabel("💳  Chọn gói Coin");
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitle.setForeground(Color.WHITE);
+
+        JButton btnBack = new JButton("← Quay lại Ví");
+        btnBack.setFocusPainted(false);
+        btnBack.setBackground(Color.WHITE);
+        btnBack.setForeground(new Color(0, 102, 204));
+        btnBack.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnBack.addActionListener(e -> {
+            new WalletFrame().setVisible(true);
+            this.dispose();
+        });
+
+        headerPanel.add(lblTitle, BorderLayout.WEST);
+        headerPanel.add(btnBack, BorderLayout.EAST);
+
+        // Packages
         JPanel packagesPanel = new JPanel();
         packagesPanel.setLayout(new BoxLayout(packagesPanel, BoxLayout.Y_AXIS));
-        packagesPanel.setOpaque(false);
+        packagesPanel.setBackground(Color.WHITE);
+        packagesPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
 
         List<CoinPackage> packages = packageDAO.getActivePackages();
-
         if (packages.isEmpty()) {
             packagesPanel.add(new JLabel("Chưa có gói nào."));
         } else {
@@ -61,21 +77,8 @@ public class DepositFrame extends JFrame {
         JScrollPane scrollPane = new JScrollPane(packagesPanel);
         scrollPane.setBorder(null);
 
-        JButton btnBack = new JButton("Quay lại Ví");
-        btnBack.setFocusPainted(false);
-        btnBack.addActionListener(e -> {
-            new WalletFrame().setVisible(true);
-            this.dispose();
-        });
-
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        bottomPanel.setOpaque(false);
-        bottomPanel.add(btnBack);
-
-        mainPanel.add(lblTitle, BorderLayout.NORTH);
+        mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
-
         add(mainPanel);
     }
 
@@ -84,9 +87,9 @@ public class DepositFrame extends JFrame {
         card.setBackground(new Color(248, 249, 250));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 220, 220)),
-                new EmptyBorder(12, 15, 12, 15)
+                new EmptyBorder(16, 20, 16, 20)
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
 
         JPanel info = new JPanel();
         info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
@@ -95,8 +98,8 @@ public class DepositFrame extends JFrame {
         JLabel lblName = new JLabel(pkg.getPackageName());
         lblName.setFont(new Font("Segoe UI", Font.BOLD, 16));
 
-        String bonusText = pkg.getBonusCoin() > 0 ? " (+" + pkg.getBonusCoin() + " thưởng)" : "";
-        JLabel lblCoin = new JLabel(pkg.getCoinAmount() + " Coin" + bonusText);
+        String bonus = pkg.getBonusCoin() > 0 ? " (+" + pkg.getBonusCoin() + " thưởng)" : "";
+        JLabel lblCoin = new JLabel(pkg.getCoinAmount() + " Coin" + bonus);
         lblCoin.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblCoin.setForeground(new Color(0, 102, 204));
 
@@ -105,21 +108,22 @@ public class DepositFrame extends JFrame {
         lblPrice.setForeground(Color.GRAY);
 
         info.add(lblName);
-        info.add(Box.createVerticalStrut(3));
+        info.add(Box.createVerticalStrut(4));
         info.add(lblCoin);
-        info.add(Box.createVerticalStrut(3));
+        info.add(Box.createVerticalStrut(4));
         info.add(lblPrice);
 
         JButton btnBuy = new JButton("Mua ngay");
-        btnBuy.setFocusPainted(false);
+        btnBuy.setPreferredSize(new Dimension(120, 40));
         btnBuy.setBackground(new Color(0, 153, 76));
         btnBuy.setForeground(Color.WHITE);
-        btnBuy.setPreferredSize(new Dimension(110, 36));
+        btnBuy.setFocusPainted(false);
+        btnBuy.setBorderPainted(false);
+        btnBuy.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnBuy.addActionListener(e -> processPurchase(pkg));
 
         card.add(info, BorderLayout.CENTER);
         card.add(btnBuy, BorderLayout.EAST);
-
         return card;
     }
 
@@ -128,29 +132,20 @@ public class DepositFrame extends JFrame {
                 "Xác nhận mua gói \"" + pkg.getPackageName() + "\"?\n"
                 + "Giá: " + String.format("%,d", pkg.getPriceVnd()) + " VNĐ\n"
                 + "Nhận: " + pkg.getTotalCoin() + " Coin\n\n"
-                + "(Đây là thanh toán mô phỏng - sẽ thành công ngay)",
-                "Xác nhận thanh toán",
-                JOptionPane.YES_NO_OPTION);
+                + "(Thanh toán mô phỏng)",
+                "Xác nhận", JOptionPane.YES_NO_OPTION);
 
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        // ===== Thanh toán mô phỏng =====
-        boolean success = mockPayment(pkg);
-
-        if (success) {
-            JOptionPane.showMessageDialog(this,
-                    "Thanh toán thành công!\nBạn đã nhận " + pkg.getTotalCoin() + " Coin.",
-                    "Thành công", JOptionPane.INFORMATION_MESSAGE);
-            
+        if (mockPayment(pkg)) {
+            JOptionPane.showMessageDialog(this, "Thanh toán thành công!\nBạn đã nhận " + pkg.getTotalCoin() + " Coin.");
             new WalletFrame().setVisible(true);
             this.dispose();
         } else {
-            JOptionPane.showMessageDialog(this, "Thanh toán thất bại, vui lòng thử lại.",
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Thanh toán thất bại!");
         }
     }
 
-    // Thanh toán mô phỏng + cộng coin + ghi lịch sử
     private boolean mockPayment(CoinPackage pkg) {
         Connection conn = null;
         try {
@@ -158,11 +153,8 @@ public class DepositFrame extends JFrame {
             conn.setAutoCommit(false);
 
             String orderCode = "ORD" + System.currentTimeMillis();
-
-            // 1. Tạo payment_order
-            String orderSql = "INSERT INTO payment_orders (user_id, package_id, order_code, amount_vnd, coin_amount, status, payment_method) "
-                            + "VALUES (?, ?, ?, ?, ?, 'SUCCESS', 'MOCK')";
-            try (PreparedStatement ps = conn.prepareStatement(orderSql)) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO payment_orders (user_id, package_id, order_code, amount_vnd, coin_amount, status, payment_method) VALUES (?, ?, ?, ?, ?, 'SUCCESS', 'MOCK')")) {
                 ps.setInt(1, currentUser.getUserId());
                 ps.setInt(2, pkg.getPackageId());
                 ps.setString(3, orderCode);
@@ -171,15 +163,13 @@ public class DepositFrame extends JFrame {
                 ps.executeUpdate();
             }
 
-            // 2. Cộng coin vào ví
-            String updateWallet = "UPDATE wallets SET balance = balance + ?, updated_at = GETDATE() WHERE user_id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(updateWallet)) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE wallets SET balance = balance + ?, updated_at = GETDATE() WHERE user_id = ?")) {
                 ps.setLong(1, pkg.getTotalCoin());
                 ps.setInt(2, currentUser.getUserId());
                 ps.executeUpdate();
             }
 
-            // 3. Lấy số dư mới
             long newBalance = 0;
             try (PreparedStatement ps = conn.prepareStatement("SELECT balance FROM wallets WHERE user_id = ?")) {
                 ps.setInt(1, currentUser.getUserId());
@@ -188,10 +178,8 @@ public class DepositFrame extends JFrame {
                 }
             }
 
-            // 4. Ghi coin_transaction
-            String transSql = "INSERT INTO coin_transactions (user_id, amount, balance_after, type, description) "
-                            + "VALUES (?, ?, ?, 'DEPOSIT', ?)";
-            try (PreparedStatement ps = conn.prepareStatement(transSql)) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO coin_transactions (user_id, amount, balance_after, type, description) VALUES (?, ?, ?, 'DEPOSIT', ?)")) {
                 ps.setInt(1, currentUser.getUserId());
                 ps.setLong(2, pkg.getTotalCoin());
                 ps.setLong(3, newBalance);
@@ -201,7 +189,6 @@ public class DepositFrame extends JFrame {
 
             conn.commit();
             return true;
-
         } catch (Exception e) {
             e.printStackTrace();
             try { if (conn != null) conn.rollback(); } catch (Exception ex) {}
