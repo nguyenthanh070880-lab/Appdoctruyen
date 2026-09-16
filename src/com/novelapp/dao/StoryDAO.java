@@ -89,7 +89,6 @@ public class StoryDAO {
         return list;
     }
 
-    // Top truyện theo lượt xem
     public List<Story> getTopStoriesByView(int limit) {
         List<Story> list = new ArrayList<>();
         String sql = "SELECT TOP (?) s.*, u.full_name AS author_name "
@@ -114,7 +113,6 @@ public class StoryDAO {
         return list;
     }
 
-    // Top truyện theo đánh giá
     public List<Story> getTopStoriesByRating(int limit) {
         List<Story> list = new ArrayList<>();
         String sql = "SELECT TOP (?) s.*, u.full_name AS author_name "
@@ -139,7 +137,6 @@ public class StoryDAO {
         return list;
     }
 
-    // Đề xuất (truyện mới + đang hot)
     public List<Story> getRecommendedStories(int limit) {
         List<Story> list = new ArrayList<>();
         String sql = "SELECT TOP (?) s.*, u.full_name AS author_name "
@@ -162,6 +159,18 @@ public class StoryDAO {
         }
 
         return list;
+    }
+
+    public void updateCoverUrl(int storyId, String coverUrl) {
+        String sql = "UPDATE stories SET cover_url = ?, updated_at = GETDATE() WHERE story_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, coverUrl);
+            ps.setInt(2, storyId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     private Story mapResultSetToStory(ResultSet rs) throws SQLException {
