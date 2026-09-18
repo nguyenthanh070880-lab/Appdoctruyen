@@ -1,21 +1,26 @@
 package com.novelapp.view;
 
 import com.novelapp.config.DatabaseConnection;
+import com.novelapp.dao.StoryDAO;
 import com.novelapp.model.User;
 import com.novelapp.util.SessionManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.io.File;
 import java.sql.*;
 
 public class EditStoryFrame extends JFrame {
 
     private final User currentUser;
     private final int storyId;
+    private final StoryDAO storyDAO = new StoryDAO();
     private JTextField txtTitle;
     private JTextArea txtDescription;
     private JComboBox<String> cboStatus;
+    private JLabel lblCoverPreview;
+    private String selectedCoverPath = null;
 
     public EditStoryFrame(int storyId) {
         this.currentUser = SessionManager.getCurrentUser();
@@ -27,6 +32,7 @@ public class EditStoryFrame extends JFrame {
         }
         initComponents();
         loadStory();
+        loadCurrentCover();
     }
 
     private void initComponents() {
@@ -72,6 +78,32 @@ public class EditStoryFrame extends JFrame {
         txtDescription.setWrapStyleWord(true);
         formPanel.add(new JScrollPane(txtDescription), gbc);
 
+        // Ảnh bìa
+        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.anchor = GridBagConstraints.NORTH;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weighty = 0;
+        formPanel.add(new JLabel("Ảnh bìa:"), gbc);
+
+        gbc.gridx = 1;
+        JPanel coverPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        coverPanel.setOpaque(false);
+
+        lblCoverPreview = new JLabel("Chưa có ảnh");
+        lblCoverPreview.setPreferredSize(new Dimension(100, 130));
+        lblCoverPreview.setHorizontalAlignment(SwingConstants.CENTER);
+        lblCoverPreview.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
+        lblCoverPreview.setOpaque(true);
+        lblCoverPreview.setBackground(new Color(245, 245, 245));
+
+        JButton btnChooseCover = new JButton("Đổi ảnh...");
+        btnChooseCover.setFocusPainted(false);
+        btnChooseCover.addActionListener(e -> chooseCover());
+
+        coverPanel.add(lblCoverPreview);
+        coverPanel.add(btnChooseCover);
+        formPanel.add(coverPanel, gbc);
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         buttonPanel.setOpaque(false);
 
@@ -115,8 +147,53 @@ public class EditStoryFrame extends JFrame {
         }
     }
 
+    private void chooseCover() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "Ảnh (jpg, png, jpeg)", "jpg", "png", "jpeg"));
+
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
+        File file = chooser.getSelectedFile();
+        selectedCoverPath = file.getAbsolutePath();
+
+        ImageIcon icon = new ImageIcon(selectedCoverPath);
+        Image img = icon.getImage().getScaledInstance(100, 130, Image.SCALE_SMOOTH);
+        lblCoverPreview.setIcon(new ImageIcon(img));
+        lblCoverPreview.setText("");
+    }
+
+    private void loadCurrentCover() {
+        try {
+            String sql = "SELECT cover_url FROM stories WHERE story_id = ?";
+
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+
+                ps.setInt(1, storyId);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String coverUrl = rs.getString("cover_url");
+
+                        if (coverUrl != null && !coverUrl.isEmpty()) {
+                            ImageIcon icon = new ImageIcon(coverUrl);
+                            Image img = icon.getImage().getScaledInstance(
+                                    100, 130, Image.SCALE_SMOOTH);
+                            lblCoverPreview.setIcon(new ImageIcon(img));
+                            lblCoverPreview.setText("");
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void saveStory() {
         String title = txtTitle.getText().trim();
+
         if (title.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Tên truyện không được để trống!");
             return;
@@ -124,18 +201,57 @@ public class EditStoryFrame extends JFrame {
 
         String sql = "UPDATE stories SET title = ?, description = ?, status = ?, updated_at = GETDATE() "
                    + "WHERE story_id = ? AND author_id = ?";
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setString(1, title);
             ps.setString(2, txtDescription.getText().trim());
             ps.setString(3, (String) cboStatus.getSelectedItem());
             ps.setInt(4, storyId);
             ps.setInt(5, currentUser.getUserId());
+
             ps.executeUpdate();
+
+            // Nếu user chọn ảnh mới thì cập nhật
+            if (selectedCoverPath != null) {
+                try {
+                    File coversDir = new File("covers");
+
+                    if (!coversDir.exists()) {
+                        coversDir.mkdir();
+                    }
+
+                    File src = new File(selectedCoverPath);
+
+                    String ext = src.getName().substring(
+                            src.getName().lastIndexOf('.'));
+
+                    String newName = "cover_" + storyId + "_"
+                            + System.currentTimeMillis() + ext;
+
+                    File dest = new File(coversDir, newName);
+
+                    java.nio.file.Files.copy(
+                            src.toPath(),
+                            dest.toPath(),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                    );
+
+                    storyDAO.updateCoverUrl(
+                            storyId,
+                            dest.getAbsolutePath()
+                    );
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
 
             JOptionPane.showMessageDialog(this, "Cập nhật thành công!");
             new AuthorStoryFrame().setVisible(true);
             this.dispose();
+
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());

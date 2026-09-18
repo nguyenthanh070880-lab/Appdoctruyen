@@ -71,6 +71,10 @@ public class WalletFrame extends JFrame {
         lblBalance.setFont(new Font("Segoe UI", Font.BOLD, 32));
         lblBalance.setForeground(Color.WHITE);
 
+        // Standardized Button Actions Panel
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actionPanel.setOpaque(false);
+
         JButton btnNap = new JButton("Nạp Coin");
         btnNap.setPreferredSize(new Dimension(130, 42));
         btnNap.setBackground(Color.WHITE);
@@ -84,6 +88,22 @@ public class WalletFrame extends JFrame {
             this.dispose();
         });
 
+        JButton btnInvoice = new JButton("Hóa đơn");
+        btnInvoice.setPreferredSize(new Dimension(110, 42));
+        btnInvoice.setBackground(new Color(240, 240, 240));
+        btnInvoice.setForeground(new Color(0, 102, 204));
+        btnInvoice.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnInvoice.setFocusPainted(false);
+        btnInvoice.setBorderPainted(false);
+        btnInvoice.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnInvoice.addActionListener(e -> {
+            new InvoiceFrame().setVisible(true);
+            this.dispose();
+        });
+
+        actionPanel.add(btnInvoice);
+        actionPanel.add(btnNap);
+
         JPanel leftBal = new JPanel();
         leftBal.setLayout(new BoxLayout(leftBal, BoxLayout.Y_AXIS));
         leftBal.setOpaque(false);
@@ -92,7 +112,7 @@ public class WalletFrame extends JFrame {
         leftBal.add(lblBalance);
 
         balancePanel.add(leftBal, BorderLayout.WEST);
-        balancePanel.add(btnNap, BorderLayout.EAST);
+        balancePanel.add(actionPanel, BorderLayout.EAST);
 
         // History
         JPanel historyPanel = new JPanel(new BorderLayout(10, 10));
@@ -104,6 +124,7 @@ public class WalletFrame extends JFrame {
 
         String[] columns = {"Thời gian", "Loại", "Số lượng", "Số dư sau", "Mô tả"};
         DefaultTableModel model = new DefaultTableModel(columns, 0) {
+            @Override
             public boolean isCellEditable(int r, int c) { return false; }
         };
         JTable table = new JTable(model);

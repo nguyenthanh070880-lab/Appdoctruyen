@@ -82,7 +82,26 @@ public class AdminDashboardFrame extends JFrame {
             new AdminStatsFrame().setVisible(true);
             this.dispose();
         }));
-
+        menuPanel.add(createMenuCard("Xử lý Báo cáo", "Xem và xử lý các báo cáo từ người dùng", e -> {
+            new AdminReportFrame().setVisible(true);
+            this.dispose();
+        }));
+        menuPanel.add(createMenuCard("Kiểm duyệt Bình luận", "Ẩn / Hiện / Xóa bình luận", e -> {
+            new AdminCommentModerationFrame().setVisible(true);
+            this.dispose();
+        }));
+        menuPanel.add(createMenuCard("Giao dịch & Coin", "Xem lịch sử + điều chỉnh Coin", e -> {
+            new AdminTransactionFrame().setVisible(true);
+            this.dispose();
+        }));
+        menuPanel.add(createMenuCard("Thông báo hệ thống", "Gửi thông báo cho user", e -> {
+            new AdminNotificationFrame().setVisible(true);
+            this.dispose();
+        }));
+        menuPanel.add(createMenuCard("Khuyến mãi", "Quản lý gói Coin khuyến mãi", e -> {
+            new AdminPromotionFrame().setVisible(true);
+            this.dispose();
+        }));
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(menuPanel, BorderLayout.CENTER);
         add(mainPanel);

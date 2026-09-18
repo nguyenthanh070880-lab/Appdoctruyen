@@ -10,6 +10,8 @@ public class RegisterFrame extends JFrame {
     private JTextField txtUsername;
     private JTextField txtEmail;
     private JTextField txtFullName;
+    private JTextField txtBirthDate;   // định dạng yyyy-MM-dd
+    private JCheckBox chkAgree;
     private JPasswordField txtPassword;
     private JPasswordField txtConfirmPassword;
     private JButton btnRegister;
@@ -81,8 +83,23 @@ public class RegisterFrame extends JFrame {
         txtFullName = createTextField();
         formPanel.add(txtFullName, gbc);
 
-        // Mật khẩu
+        // Ngày sinh
         gbc.gridx = 0; gbc.gridy = 3;
+        gbc.weightx = 0; gbc.anchor = GridBagConstraints.EAST;
+        formPanel.add(new JLabel("Ngày sinh (yyyy-MM-dd):"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1.0; gbc.anchor = GridBagConstraints.WEST;
+        txtBirthDate = createTextField();
+        txtBirthDate.setToolTipText("Ví dụ: 2000-05-20");
+        formPanel.add(txtBirthDate, gbc);
+
+        // Điều khoản
+        gbc.gridx = 1; gbc.gridy = 4;
+        chkAgree = new JCheckBox("Tôi đồng ý với điều khoản sử dụng");
+        chkAgree.setOpaque(false);
+        formPanel.add(chkAgree, gbc);
+
+        // Mật khẩu
+        gbc.gridx = 0; gbc.gridy = 5;
         gbc.weightx = 0;
         gbc.anchor = GridBagConstraints.EAST;
         formPanel.add(new JLabel("Mật khẩu:"), gbc);
@@ -92,7 +109,7 @@ public class RegisterFrame extends JFrame {
         formPanel.add(txtPassword, gbc);
 
         // Xác nhận mật khẩu
-        gbc.gridx = 0; gbc.gridy = 4;
+        gbc.gridx = 0; gbc.gridy = 6;
         gbc.weightx = 0;
         gbc.anchor = GridBagConstraints.EAST;
         formPanel.add(new JLabel("Xác nhận mật khẩu:"), gbc);
@@ -170,7 +187,22 @@ public class RegisterFrame extends JFrame {
         String password = new String(txtPassword.getPassword());
         String confirmPassword = new String(txtConfirmPassword.getPassword());
 
-        String error = authService.register(username, email, password, confirmPassword, fullName);
+        String birthDate = txtBirthDate.getText().trim();
+        if (!chkAgree.isSelected()) {
+            JOptionPane.showMessageDialog(this, "Bạn phải đồng ý điều khoản sử dụng!");
+            return;
+        }
+        if (birthDate.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập ngày sinh!");
+            return;
+        }
+        // Kiểm tra format đơn giản
+        if (!birthDate.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            JOptionPane.showMessageDialog(this, "Ngày sinh phải theo định dạng yyyy-MM-dd!");
+            return;
+        }
+
+        String error = authService.register(username, email, password, confirmPassword, fullName, birthDate);
 
         if (error == null) {
             JOptionPane.showMessageDialog(this,

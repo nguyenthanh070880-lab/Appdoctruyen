@@ -3,11 +3,15 @@ package com.novelapp.view;
 import com.novelapp.dao.StoryDAO;
 import com.novelapp.model.Story;
 import com.novelapp.model.User;
+import com.novelapp.util.DatabaseConnection;
 import com.novelapp.util.SessionManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.List;
 
 public class HomeFrame extends JFrame {
@@ -120,6 +124,11 @@ public class HomeFrame extends JFrame {
                 new AuthorStoryFrame().setVisible(true);
                 this.dispose();
             }));
+            sidebar.add(Box.createVerticalStrut(10));
+            sidebar.add(createMenuButton("📊  Thống kê & Doanh thu", e -> {
+                new AuthorStatsFrame().setVisible(true);
+                this.dispose();
+            }));
         }
 
         // Menu Admin
@@ -158,6 +167,57 @@ public class HomeFrame extends JFrame {
     private void loadStories() {
         contentPanel.removeAll();
 
+        // ===== DANH MỤC THỂ LOẠI =====
+        JLabel lblGenres = new JLabel("📂  Thể loại");
+        lblGenres.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblGenres.setAlignmentX(Component.LEFT_ALIGNMENT);
+        contentPanel.add(lblGenres);
+        contentPanel.add(Box.createVerticalStrut(10));
+
+        JPanel genrePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        genrePanel.setOpaque(false);
+        genrePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        genrePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+
+        // Lấy list genre từ DB
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT genre_id, genre_name FROM genres WHERE is_active = 1 ORDER BY genre_name");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int genreId = rs.getInt("genre_id");
+                String name = rs.getString("genre_name");
+                JButton btn = new JButton(name);
+                btn.setFocusPainted(false);
+                btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                btn.addActionListener(e -> {
+                    // Mở SearchFrame với filter thể loại (sẽ làm ở bước lọc)
+                    new SearchFrame(genreId, name).setVisible(true);
+                    this.dispose();
+                });
+                genrePanel.add(btn);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        contentPanel.add(genrePanel);
+        contentPanel.add(Box.createVerticalStrut(20));
+
+        // ===== TRUYỆN NỔI BẬT =====
+        JLabel lblHot = new JLabel("🔥  Truyện nổi bật");
+        lblHot.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblHot.setAlignmentX(Component.LEFT_ALIGNMENT);
+        contentPanel.add(lblHot);
+        contentPanel.add(Box.createVerticalStrut(12));
+
+        List<Story> hotStories = storyDAO.getTopStoriesByView(5);
+        for (Story s : hotStories) {
+            contentPanel.add(createStoryCard(s));
+            contentPanel.add(Box.createVerticalStrut(10));
+        }
+        contentPanel.add(Box.createVerticalStrut(20));
+
+        // ===== MỚI CẬP NHẬT =====
         JLabel lblTitle = new JLabel("📖  Truyện mới cập nhật");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblTitle.setForeground(new Color(30, 30, 30));
@@ -203,6 +263,7 @@ public class HomeFrame extends JFrame {
                         BorderFactory.createEmptyBorder(15, 19, 15, 19)
                 ));
             }
+
             public void mouseExited(java.awt.event.MouseEvent e) {
                 card.setBackground(Color.WHITE);
                 card.setBorder(BorderFactory.createCompoundBorder(
@@ -275,6 +336,7 @@ public class HomeFrame extends JFrame {
                 btn.setBackground(new Color(0, 102, 204));
                 btn.setForeground(Color.WHITE);
             }
+
             public void mouseExited(java.awt.event.MouseEvent e) {
                 btn.setBackground(Color.WHITE);
                 btn.setForeground(new Color(50, 50, 50));

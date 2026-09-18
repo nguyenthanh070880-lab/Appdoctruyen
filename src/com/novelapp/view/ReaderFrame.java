@@ -3,6 +3,7 @@ package com.novelapp.view;
 import com.novelapp.dao.ChapterAccessDAO;
 import com.novelapp.dao.ChapterDAO;
 import com.novelapp.dao.WalletDAO;
+import com.novelapp.dao.ReportDAO;
 import com.novelapp.model.Chapter;
 import com.novelapp.model.User;
 import com.novelapp.util.SessionManager;
@@ -110,6 +111,12 @@ public class ReaderFrame extends JFrame {
 
         footerPanel.add(btnPrev);
         footerPanel.add(btnNext);
+
+        JButton btnReportChapter = new JButton("🚩 Báo cáo chương");
+        btnReportChapter.setFocusPainted(false);
+        btnReportChapter.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnReportChapter.addActionListener(e -> showReportChapterDialog());
+        footerPanel.add(btnReportChapter);
 
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
@@ -242,6 +249,65 @@ public class ReaderFrame extends JFrame {
             ps.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void showReportChapterDialog() {
+        String[] reasons = {
+            "Nội dung vi phạm",
+            "Spam / Quảng cáo",
+            "Nội dung không phù hợp",
+            "Lỗi kỹ thuật",
+            "Trùng lặp",
+            "Khác"
+        };
+
+        JComboBox<String> cbo = new JComboBox<>(reasons);
+
+        JTextArea desc = new JTextArea(4, 25);
+        desc.setLineWrap(true);
+        desc.setWrapStyleWord(true);
+        desc.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+
+        JPanel panel = new JPanel(new BorderLayout(5, 8));
+        panel.add(new JLabel("Lý do báo cáo chương:"), BorderLayout.NORTH);
+
+        JPanel center = new JPanel(new BorderLayout(5, 5));
+        center.add(cbo, BorderLayout.NORTH);
+        center.add(new JScrollPane(desc), BorderLayout.CENTER);
+
+        panel.add(center, BorderLayout.CENTER);
+
+        int result = JOptionPane.showConfirmDialog(
+                this,
+                panel,
+                "Báo cáo chương",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            ReportDAO reportDAO = new ReportDAO();
+
+            boolean ok = reportDAO.createReport(
+                    currentUser.getUserId(),
+                    "CHAPTER",
+                    chapter.getChapterId(),
+                    (String) cbo.getSelectedItem(),
+                    desc.getText().trim()
+            );
+
+            if (ok) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Đã gửi báo cáo chương. Cảm ơn bạn!"
+                );
+            } else {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Gửi báo cáo thất bại!"
+                );
+            }
         }
     }
 }

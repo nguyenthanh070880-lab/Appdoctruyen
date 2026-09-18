@@ -210,4 +210,25 @@ public class StoryDAO {
 
         return story;
     }
+
+    public String getGenresByStoryId(int storyId) {
+        StringBuilder sb = new StringBuilder();
+        String sql = "SELECT g.genre_name FROM story_genres sg "
+                   + "JOIN genres g ON sg.genre_id = g.genre_id "
+                   + "WHERE sg.story_id = ? AND g.is_active = 1 "
+                   + "ORDER BY g.genre_name";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, storyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (sb.length() > 0) sb.append(", ");
+                    sb.append(rs.getString("genre_name"));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return sb.length() > 0 ? sb.toString() : "Chưa phân loại";
+    }
 }

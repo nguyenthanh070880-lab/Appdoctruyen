@@ -31,7 +31,7 @@ public class AdminUserFrame extends JFrame {
     private void initComponents() {
         setTitle("Quản lý người dùng - Admin");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1100, 620);
+        setSize(1200, 650);
         setLocationRelativeTo(null);
 
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -40,13 +40,14 @@ public class AdminUserFrame extends JFrame {
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(new Color(0, 102, 204));
         header.setBorder(new EmptyBorder(15, 25, 15, 25));
-        JLabel lbl = new JLabel("👥  Quản lý người dùng");
+        JLabel lbl = new JLabel("👥  Quản lý người dùng & Phân quyền");
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lbl.setForeground(Color.WHITE);
         header.add(lbl, BorderLayout.WEST);
 
         String[] columns = {"ID", "Username", "Họ tên", "Email", "Trạng thái", "Role", "Ngày tạo"};
         model = new DefaultTableModel(columns, 0) {
+            @Override
             public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(model);
@@ -64,6 +65,9 @@ public class AdminUserFrame extends JFrame {
         JButton btnUnlock = createBtn("Mở khóa", new Color(0, 153, 76));
         JButton btnSetAuthor = createBtn("Cấp Author", null);
         JButton btnRemoveAuthor = createBtn("Thu hồi Author", null);
+        JButton btnSetStaff = createBtn("Cấp Staff", null);
+        JButton btnRemoveStaff = createBtn("Thu hồi Staff", null);
+        JButton btnSetAdmin = createBtn("Cấp Admin", new Color(255, 140, 0));
         JButton btnRefresh = createBtn("Làm mới", null);
         JButton btnBack = createBtn("← Dashboard", null);
 
@@ -71,6 +75,9 @@ public class AdminUserFrame extends JFrame {
         btnUnlock.addActionListener(e -> changeStatus("ACTIVE"));
         btnSetAuthor.addActionListener(e -> assignRole("AUTHOR"));
         btnRemoveAuthor.addActionListener(e -> removeRole("AUTHOR"));
+        btnSetStaff.addActionListener(e -> assignRole("STAFF"));
+        btnRemoveStaff.addActionListener(e -> removeRole("STAFF"));
+        btnSetAdmin.addActionListener(e -> assignRole("ADMIN"));
         btnRefresh.addActionListener(e -> loadUsers());
         btnBack.addActionListener(e -> {
             new AdminDashboardFrame().setVisible(true);
@@ -81,6 +88,9 @@ public class AdminUserFrame extends JFrame {
         bottom.add(btnUnlock);
         bottom.add(btnSetAuthor);
         bottom.add(btnRemoveAuthor);
+        bottom.add(btnSetStaff);
+        bottom.add(btnRemoveStaff);
+        bottom.add(btnSetAdmin);
         bottom.add(btnRefresh);
         bottom.add(btnBack);
 
@@ -162,7 +172,7 @@ public class AdminUserFrame extends JFrame {
             ps.setInt(3, userId);
             ps.setString(4, roleName);
             ps.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Cấp quyền thành công!");
+            JOptionPane.showMessageDialog(this, "Cấp quyền " + roleName + " thành công!");
             loadUsers();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -176,8 +186,8 @@ public class AdminUserFrame extends JFrame {
             return;
         }
         int userId = (int) table.getValueAt(row, 0);
-        if (userId == currentUser.getUserId()) {
-            JOptionPane.showMessageDialog(this, "Không thể tự thu hồi quyền!");
+        if (userId == currentUser.getUserId() && "ADMIN".equalsIgnoreCase(roleName)) {
+            JOptionPane.showMessageDialog(this, "Không thể tự thu hồi quyền Admin của chính mình!");
             return;
         }
         try (Connection conn = DatabaseConnection.getConnection();
@@ -187,7 +197,7 @@ public class AdminUserFrame extends JFrame {
             ps.setInt(1, userId);
             ps.setString(2, roleName);
             ps.executeUpdate();
-            JOptionPane.showMessageDialog(this, "Đã thu hồi quyền!");
+            JOptionPane.showMessageDialog(this, "Đã thu hồi quyền " + roleName + "!");
             loadUsers();
         } catch (SQLException e) {
             e.printStackTrace();
