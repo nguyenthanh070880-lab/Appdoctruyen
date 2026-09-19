@@ -11,11 +11,11 @@ public class AuthService {
     private final UserDAO userDAO = new UserDAO();
     
     /**
-     * Đăng ký tài khoản mới
+     * Đăng ký tài khoản mới bao gồm Ngày sinh
      * @return null nếu thành công, ngược lại trả về thông báo lỗi
      */
     public String register(String username, String email, String password, 
-                           String confirmPassword, String fullName) {
+                           String confirmPassword, String fullName, String birthDate) {
         
         // Validate cơ bản
         if (username == null || username.trim().isEmpty()) {
@@ -33,8 +33,11 @@ public class AuthService {
         if (fullName == null || fullName.trim().isEmpty()) {
             return "Họ tên không được để trống";
         }
+        if (birthDate == null || birthDate.trim().isEmpty()) {
+            return "Ngày sinh không được để trống";
+        }
         
-        // Kiểm tra trùng
+        // Kiểm tra trùng lặp
         if (userDAO.isUsernameExists(username.trim())) {
             return "Username đã tồn tại";
         }
@@ -42,18 +45,19 @@ public class AuthService {
             return "Email đã tồn tại";
         }
         
-        // Tạo user
+        // Tạo đối tượng User
         User user = new User();
         user.setUsername(username.trim());
         user.setEmail(email.trim());
         user.setPasswordHash(PasswordUtil.hashPassword(password));
         user.setFullName(fullName.trim());
+        user.setBirthDate(birthDate.trim());
         user.setStatus("ACTIVE");
         
         boolean success = userDAO.register(user);
         
         if (success) {
-            return null; // thành công
+            return null; // Thành công
         } else {
             return "Đăng ký thất bại, vui lòng thử lại";
         }
@@ -72,24 +76,24 @@ public class AuthService {
         User user = userDAO.findByUsernameOrEmail(usernameOrEmail.trim());
         
         if (user == null) {
-            return null; // không tìm thấy tài khoản
+            return null; // Không tìm thấy tài khoản
         }
         
-        // Kiểm tra trạng thái
+        // Kiểm tra trạng thái tài khoản
         if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) {
-            return null; // tài khoản bị khóa
+            return null; // Tài khoản bị khóa / không hoạt động
         }
         
         // Kiểm tra mật khẩu
         if (!PasswordUtil.checkPassword(password, user.getPasswordHash())) {
-            return null; // sai mật khẩu
+            return null; // Sai mật khẩu
         }
         
-        // Lấy roles
+        // Lấy danh sách quyền (roles)
         List<String> roles = userDAO.getRolesByUserId(user.getUserId());
         user.setRoles(roles);
         
-        // Cập nhật last_login
+        // Cập nhật thời gian đăng nhập gần nhất
         userDAO.updateLastLogin(user.getUserId());
         
         return user;

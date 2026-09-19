@@ -13,8 +13,8 @@ public class UserDAO {
 
     // ==================== ĐĂNG KÝ ====================
     public boolean register(User user) {
-        String sql = "INSERT INTO users (username, email, password_hash, full_name, date_of_birth, status) "
-                   + "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, email, password_hash, full_name, birth_date, status) "
+                   + "VALUES (?, ?, ?, ?, ?, 'ACTIVE')";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -24,13 +24,11 @@ public class UserDAO {
             ps.setString(3, user.getPasswordHash());
             ps.setString(4, user.getFullName());
             
-            if (user.getDateOfBirth() != null) {
-                ps.setDate(5, Date.valueOf(user.getDateOfBirth()));
+            if (user.getBirthDate() != null && !user.getBirthDate().isEmpty()) {
+                ps.setDate(5, java.sql.Date.valueOf(user.getBirthDate())); // yyyy-MM-dd
             } else {
                 ps.setNull(5, Types.DATE);
             }
-            
-            ps.setString(6, "ACTIVE");
             
             int rows = ps.executeUpdate();
             

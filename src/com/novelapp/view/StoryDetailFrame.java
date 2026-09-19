@@ -5,7 +5,7 @@ import com.novelapp.model.Chapter;
 import com.novelapp.model.Story;
 import com.novelapp.model.User;
 import com.novelapp.util.SessionManager;
-
+import java.awt.Toolkit;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -64,7 +64,6 @@ public class StoryDetailFrame extends JFrame {
         JPanel topPanel = new JPanel(new GridBagLayout());
         topPanel.setOpaque(false);
         topPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        topPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 300));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(0, 0, 0, 25);
@@ -117,9 +116,8 @@ public class StoryDetailFrame extends JFrame {
         lblStatus.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblStatus.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel lblGenre = new JLabel("Thể loại: " + storyDAO.getGenresByStoryId(story.getStoryId()));
-        lblGenre.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        lblGenre.setAlignmentX(Component.LEFT_ALIGNMENT);
+        // Thể loại dạng Tag / Badge
+        JPanel genreTagPanel = createGenreTagsPanel();
 
         JLabel lblMeta = new JLabel(String.format(
                 "👁 %,d lượt xem   •   ❤️ %,d theo dõi   •   ★ %.1f (%d đánh giá)",
@@ -134,6 +132,15 @@ public class StoryDetailFrame extends JFrame {
         actionPanel.setOpaque(false);
         actionPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+
+        JButton btnReadNow = new JButton("📖 Đọc ngay");
+        btnReadNow.setPreferredSize(new Dimension(120, 36));
+        btnReadNow.setBackground(new Color(0, 153, 76));
+        btnReadNow.setForeground(Color.WHITE);
+        btnReadNow.setFocusPainted(false);
+        btnReadNow.setBorderPainted(false);
+        btnReadNow.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnReadNow.addActionListener(e -> readFirstChapter());
 
         btnFollow = new JButton();
         btnFollow.setPreferredSize(new Dimension(120, 36));
@@ -152,6 +159,12 @@ public class StoryDetailFrame extends JFrame {
         btnRate.setFocusPainted(false);
         btnRate.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnRate.addActionListener(e -> showRatingDialog());
+
+        JButton btnShare = new JButton("🔗 Chia sẻ");
+        btnShare.setPreferredSize(new Dimension(100, 36));
+        btnShare.setFocusPainted(false);
+        btnShare.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnShare.addActionListener(e -> shareStory());
 
         JButton btnReport = new JButton("🚩 Báo cáo");
         btnReport.setPreferredSize(new Dimension(100, 36));
@@ -186,9 +199,11 @@ public class StoryDetailFrame extends JFrame {
             updateFavoriteButton();
         });
 
+        actionPanel.add(btnReadNow);
         actionPanel.add(btnFollow);
         actionPanel.add(btnFavorite);
         actionPanel.add(btnRate);
+        actionPanel.add(btnShare);
         actionPanel.add(btnReport);
         actionPanel.add(btnBack);
 
@@ -198,8 +213,8 @@ public class StoryDetailFrame extends JFrame {
         infoPanel.add(Box.createVerticalStrut(6));
         infoPanel.add(lblStatus);
         infoPanel.add(Box.createVerticalStrut(6));
-        infoPanel.add(lblGenre);
-        infoPanel.add(Box.createVerticalStrut(6));
+        infoPanel.add(genreTagPanel);
+        infoPanel.add(Box.createVerticalStrut(8));
         infoPanel.add(lblMeta);
         infoPanel.add(Box.createVerticalStrut(18));
         infoPanel.add(actionPanel);
@@ -230,8 +245,8 @@ public class StoryDetailFrame extends JFrame {
         ));
 
         JScrollPane scrollDesc = new JScrollPane(txtDescription);
-        scrollDesc.setPreferredSize(new Dimension(100, 110));
-        scrollDesc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 140));
+        scrollDesc.setPreferredSize(new Dimension(100, 120));
+        scrollDesc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
         scrollDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
         scrollDesc.setBorder(null);
 
@@ -252,7 +267,10 @@ public class StoryDetailFrame extends JFrame {
 
         List<Chapter> chapters = chapterDAO.getChaptersByStoryId(story.getStoryId());
         if (chapters.isEmpty()) {
-            chapterListPanel.add(new JLabel("Chưa có chương nào."));
+            JLabel emptyLbl = new JLabel("Chưa có chương nào.");
+            emptyLbl.setFont(new Font("Segoe UI", Font.ITALIC, 13));
+            emptyLbl.setForeground(Color.GRAY);
+            chapterListPanel.add(emptyLbl);
         } else {
             for (Chapter chapter : chapters) {
                 chapterListPanel.add(createChapterRow(chapter));
@@ -326,6 +344,73 @@ public class StoryDetailFrame extends JFrame {
 
         mainPanel.add(scrollPane, BorderLayout.CENTER);
         add(mainPanel);
+    }
+
+    private void readFirstChapter() {
+        List<Chapter> chapters = chapterDAO.getChaptersByStoryId(story.getStoryId());
+        if (chapters == null || chapters.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Truyện chưa có chương nào!");
+            return;
+        }
+        Chapter first = chapters.get(0);
+        for (Chapter c : chapters) {
+            if (c.getChapterNumber() < first.getChapterNumber()) {
+                first = c;
+            }
+        }
+        handleReadChapter(first);
+    }
+
+    private void shareStory() {
+        String text = "Đọc truyện \"" + story.getTitle() + "\" trên NovelApp!\n"
+                + "Tác giả: " + story.getAuthorName();
+        Toolkit.getDefaultToolkit().getSystemClipboard()
+                .setContents(new java.awt.datatransfer.StringSelection(text), null);
+        JOptionPane.showMessageDialog(this,
+                "Đã copy link/thông tin truyện vào clipboard!\n\n" + text,
+                "Chia sẻ", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private JPanel createGenreTagsPanel() {
+        JPanel genrePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+        genrePanel.setOpaque(false);
+        genrePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel lblGenreTitle = new JLabel("Thể loại: ");
+        lblGenreTitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        genrePanel.add(lblGenreTitle);
+
+        List<Map<String, Object>> genres = storyDAO.getGenreListByStoryId(story.getStoryId());
+        if (genres.isEmpty()) {
+            JLabel lblNone = new JLabel("Chưa cập nhật");
+            lblNone.setFont(new Font("Segoe UI", Font.ITALIC, 13));
+            lblNone.setForeground(Color.GRAY);
+            genrePanel.add(lblNone);
+        } else {
+            for (Map<String, Object> g : genres) {
+                int genreId = (int) g.get("genreId");
+                String genreName = (String) g.get("genreName");
+
+                JButton btnGenreTag = new JButton(genreName);
+                btnGenreTag.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                btnGenreTag.setForeground(new Color(0, 102, 204));
+                btnGenreTag.setBackground(new Color(230, 242, 255));
+                btnGenreTag.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(180, 215, 255), 1, true),
+                        new EmptyBorder(3, 8, 3, 8)
+                ));
+                btnGenreTag.setFocusPainted(false);
+                btnGenreTag.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                btnGenreTag.addActionListener(e -> {
+                    new SearchFrame(genreId, genreName).setVisible(true);
+                    this.dispose();
+                });
+
+                genrePanel.add(btnGenreTag);
+            }
+        }
+        return genrePanel;
     }
 
     private void loadCoverImage() {
@@ -486,27 +571,25 @@ public class StoryDetailFrame extends JFrame {
 
         JPanel card = new JPanel(new BorderLayout(8, 4));
 
-        // Màu nền phân loại
         if (isMine) {
-            card.setBackground(new Color(232, 245, 233)); // xanh nhạt = tin của mình
+            card.setBackground(new Color(232, 245, 233));
         } else if (isReply) {
-            card.setBackground(new Color(245, 248, 255)); // xanh dương nhạt = phản hồi
+            card.setBackground(new Color(245, 248, 255));
         } else {
-            card.setBackground(new Color(248, 249, 250)); // xám nhạt = bình luận gốc
+            card.setBackground(new Color(248, 249, 250));
         }
 
-        // Thụt lề nếu là phản hồi
         int leftPad = isReply ? 40 : 12;
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(230, 230, 230)),
                 new EmptyBorder(10, leftPad, 10, 12)
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         String nameText = c.get("fullName") + " (@" + c.get("username") + ")";
-        if (isMine) nameText += "  •  Bạn";
-        if (isReply) nameText = "↳  " + nameText;
+        if (isMine) nameText += "    •    Bạn";
+        if (isReply) nameText = "↳    " + nameText;
 
         JLabel lblUser = new JLabel(nameText);
         lblUser.setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -527,6 +610,22 @@ public class StoryDetailFrame extends JFrame {
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         actionRow.setOpaque(false);
 
+        // Nút Like
+        Object likeCountObj = c.get("likeCount");
+        int likeCount = likeCountObj != null ? ((Number) likeCountObj).intValue() : 0;
+        JButton btnLike = new JButton("👍 " + likeCount);
+        btnLike.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnLike.setFocusPainted(false);
+        btnLike.setBorderPainted(false);
+        btnLike.setContentAreaFilled(false);
+        btnLike.setForeground(new Color(0, 102, 204));
+        btnLike.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnLike.addActionListener(e -> {
+            commentDAO.toggleLike(currentUser.getUserId(), (int) c.get("commentId"));
+            loadComments();
+        });
+
+        // Nút Phản hồi
         JButton btnReply = new JButton("Phản hồi");
         btnReply.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         btnReply.setFocusPainted(false);
@@ -536,6 +635,7 @@ public class StoryDetailFrame extends JFrame {
         btnReply.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnReply.addActionListener(e -> showReplyDialog((int) c.get("commentId")));
 
+        // Nút Báo cáo
         JButton btnReportCmt = new JButton("Báo cáo");
         btnReportCmt.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         btnReportCmt.setFocusPainted(false);
@@ -545,8 +645,29 @@ public class StoryDetailFrame extends JFrame {
         btnReportCmt.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnReportCmt.addActionListener(e -> showReportDialog("COMMENT", (int) c.get("commentId")));
 
+        actionRow.add(btnLike);
         actionRow.add(btnReply);
         actionRow.add(btnReportCmt);
+
+        // Nút Xóa (chỉ xuất hiện nếu là bình luận của chính người dùng hiện tại)
+        if (currentUser.getUserId() == (int) c.get("userId")) {
+            JButton btnDelete = new JButton("Xóa");
+            btnDelete.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+            btnDelete.setFocusPainted(false);
+            btnDelete.setBorderPainted(false);
+            btnDelete.setContentAreaFilled(false);
+            btnDelete.setForeground(new Color(220, 53, 69));
+            btnDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnDelete.addActionListener(e -> {
+                if (JOptionPane.showConfirmDialog(this, "Xóa bình luận?", "Xác nhận",
+                        JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    if (commentDAO.deleteOwnComment(currentUser.getUserId(), (int) c.get("commentId"))) {
+                        loadComments();
+                    }
+                }
+            });
+            actionRow.add(btnDelete);
+        }
 
         JPanel center = new JPanel(new BorderLayout());
         center.setOpaque(false);

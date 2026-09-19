@@ -34,7 +34,6 @@ public class LibraryFrame extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(new Color(250, 250, 250));
 
-        // Header
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(0, 102, 204));
         headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
@@ -61,6 +60,7 @@ public class LibraryFrame extends JFrame {
         tabbedPane.addTab("Đang theo dõi", createFollowedPanel());
         tabbedPane.addTab("Yêu thích", createFavoritePanel());
         tabbedPane.addTab("Lịch sử đọc", createHistoryPanel());
+        tabbedPane.addTab("Đã mở khóa", createUnlockedPanel());
 
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(tabbedPane, BorderLayout.CENTER);
@@ -70,30 +70,43 @@ public class LibraryFrame extends JFrame {
     private JPanel createFollowedPanel() {
         return createTablePanel(
             new String[]{"ID", "Tên truyện", "Tác giả", "Trạng thái", "Ngày theo dõi"},
-            "SELECT s.story_id, s.title, u.full_name, s.status, f.created_at " +
-            "FROM follows f JOIN stories s ON f.story_id = s.story_id " +
-            "JOIN users u ON s.author_id = u.user_id " +
-            "WHERE f.user_id = ? AND s.is_deleted = 0 ORDER BY f.created_at DESC"
+            "SELECT s.story_id, s.title, u.full_name, s.status, f.created_at "
+          + "FROM follows f JOIN stories s ON f.story_id = s.story_id "
+          + "JOIN users u ON s.author_id = u.user_id "
+          + "WHERE f.user_id = ? AND s.is_deleted = 0 ORDER BY f.created_at DESC"
         );
     }
 
     private JPanel createFavoritePanel() {
         return createTablePanel(
             new String[]{"ID", "Tên truyện", "Tác giả", "Trạng thái", "Ngày thêm"},
-            "SELECT s.story_id, s.title, u.full_name, s.status, fav.created_at " +
-            "FROM favorites fav JOIN stories s ON fav.story_id = s.story_id " +
-            "JOIN users u ON s.author_id = u.user_id " +
-            "WHERE fav.user_id = ? AND s.is_deleted = 0 ORDER BY fav.created_at DESC"
+            "SELECT s.story_id, s.title, u.full_name, s.status, fav.created_at "
+          + "FROM favorites fav JOIN stories s ON fav.story_id = s.story_id "
+          + "JOIN users u ON s.author_id = u.user_id "
+          + "WHERE fav.user_id = ? AND s.is_deleted = 0 ORDER BY fav.created_at DESC"
         );
     }
 
     private JPanel createHistoryPanel() {
         return createTablePanel(
             new String[]{"ID", "Tên truyện", "Chương đang đọc", "Lần đọc cuối"},
-            "SELECT s.story_id, s.title, c.title AS chapter_title, rh.last_read_at " +
-            "FROM reading_history rh JOIN stories s ON rh.story_id = s.story_id " +
-            "JOIN chapters c ON rh.chapter_id = c.chapter_id " +
-            "WHERE rh.user_id = ? AND s.is_deleted = 0 ORDER BY rh.last_read_at DESC"
+            "SELECT s.story_id, s.title, c.title AS chapter_title, rh.last_read_at "
+          + "FROM reading_history rh JOIN stories s ON rh.story_id = s.story_id "
+          + "JOIN chapters c ON rh.chapter_id = c.chapter_id "
+          + "WHERE rh.user_id = ? AND s.is_deleted = 0 ORDER BY rh.last_read_at DESC"
+        );
+    }
+
+    private JPanel createUnlockedPanel() {
+        // Đổi unlocked_at / created_at cho khớp DB của bạn
+        return createTablePanel(
+            new String[]{"ID", "Tên truyện", "Chương", "Ngày mở khóa"},
+            "SELECT s.story_id, s.title, c.title AS chapter_title, ca.created_at "
+          + "FROM chapter_access ca "
+          + "JOIN chapters c ON ca.chapter_id = c.chapter_id "
+          + "JOIN stories s ON c.story_id = s.story_id "
+          + "WHERE ca.user_id = ? AND ca.access_type = 'PURCHASE' AND s.is_deleted = 0 "
+          + "ORDER BY ca.created_at DESC"
         );
     }
 

@@ -4,32 +4,53 @@ import com.novelapp.dao.StoryDAO;
 import com.novelapp.model.Story;
 import com.novelapp.model.User;
 import com.novelapp.util.SessionManager;
-import com.novelapp.config.DatabaseConnection;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.sql.*;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SearchFrame extends JFrame {
 
     private final User currentUser;
+    private final StoryDAO storyDAO;
+
     private JTextField txtKeyword;
     private JComboBox<String> cboStatus;
     private JComboBox<String> cboPaid;
     private JComboBox<String> cboSort;
+    private JComboBox<String> cboGenre;
     private JPanel resultPanel;
 
+    private final Map<String, Integer> genreMap = new HashMap<>();
+
     public SearchFrame() {
+        this(-1, null);
+    }
+
+    public SearchFrame(int genreId, String genreName) {
         this.currentUser = SessionManager.getCurrentUser();
+        this.storyDAO = new StoryDAO();
+
         if (currentUser == null) {
             new LoginFrame().setVisible(true);
             this.dispose();
             return;
         }
+
         initComponents();
+
+        // Nạp thể loại vào ComboBox
+        loadGenresToCombo();
+
+        // Xử lý chọn trước thể loại (nếu được truyền từ màn hình khác sang)
+        if (genreId > 0 && genreName != null) {
+            cboGenre.setSelectedItem(genreName);
+        }
+
+        // Thực hiện tìm kiếm ban đầu
         doSearch();
     }
 
@@ -42,7 +63,7 @@ public class SearchFrame extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout(0, 0));
         mainPanel.setBackground(new Color(250, 250, 250));
 
-        // Header
+        // --- Header Panel ---
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(0, 102, 204));
         headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
@@ -63,11 +84,12 @@ public class SearchFrame extends JFrame {
         });
         headerPanel.add(btnBack, BorderLayout.EAST);
 
-        // Filter
+        // --- Filter Panel ---
         JPanel filterPanel = new JPanel(new BorderLayout(10, 12));
         filterPanel.setBackground(Color.WHITE);
         filterPanel.setBorder(new EmptyBorder(20, 25, 15, 25));
 
+        // Thanh tìm kiếm bằng từ khóa
         JPanel searchRow = new JPanel(new BorderLayout(12, 0));
         searchRow.setOpaque(false);
         txtKeyword = new JTextField();
@@ -91,8 +113,14 @@ public class SearchFrame extends JFrame {
         searchRow.add(txtKeyword, BorderLayout.CENTER);
         searchRow.add(btnSearch, BorderLayout.EAST);
 
+        // Các bộ lọc bổ sung (Thể loại, Trạng thái, Loại, Sắp xếp)
         JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 5));
         filterRow.setOpaque(false);
+
+        filterRow.add(new JLabel("Thể loại:"));
+        cboGenre = new JComboBox<>();
+        cboGenre.addItem("Tất cả");
+        filterRow.add(cboGenre);
 
         filterRow.add(new JLabel("Trạng thái:"));
         cboStatus = new JComboBox<>(new String[]{"Tất cả", "ONGOING", "COMPLETED", "DROPPED"});
@@ -115,7 +143,7 @@ public class SearchFrame extends JFrame {
         filterPanel.add(searchRow, BorderLayout.NORTH);
         filterPanel.add(filterRow, BorderLayout.SOUTH);
 
-        // Results
+        // --- Result Panel ---
         resultPanel = new JPanel();
         resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
         resultPanel.setBackground(Color.WHITE);
@@ -126,10 +154,7 @@ public class SearchFrame extends JFrame {
         scrollPane.getVerticalScrollBar().setUnitIncrement(18);
 
         mainPanel.add(headerPanel, BorderLayout.NORTH);
-        mainPanel.add(filterPanel, BorderLayout.CENTER);
-        mainPanel.add(scrollPane, BorderLayout.SOUTH);
-        
-        // Fix layout
+
         JPanel center = new JPanel(new BorderLayout());
         center.add(filterPanel, BorderLayout.NORTH);
         center.add(scrollPane, BorderLayout.CENTER);
@@ -138,82 +163,94 @@ public class SearchFrame extends JFrame {
         add(mainPanel);
     }
 
+    private void loadGenresToCombo() {
+        genreMap.clear();
+        cboGenre.removeAllItems();
+        cboGenre.addItem("Tất cả");
+
+        // Load danh sách thể loại bất đồng bộ
+        new SwingWorker<Map<String, Integer>, Void>() {
+            @Override
+            protected Map<String, Integer> doInBackground() {
+                return storyDAO.getAllActiveGenres();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    Map<String, Integer> genres = get();
+                    for (Map.Entry<String, Integer> entry : genres.entrySet()) {
+                        genreMap.put(entry.getKey(), entry.getValue());
+                        cboGenre.addItem(entry.getKey());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }.execute();
+    }
+
     private void doSearch() {
         resultPanel.removeAll();
+        
+        // Hiển thị trạng thái đang tải
+        JLabel lblLoading = new JLabel("Đang tải dữ liệu...");
+        lblLoading.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+        lblLoading.setForeground(Color.GRAY);
+        resultPanel.add(lblLoading);
+        resultPanel.revalidate();
+        resultPanel.repaint();
+
         String keyword = txtKeyword.getText().trim();
         String status = (String) cboStatus.getSelectedItem();
         String paid = (String) cboPaid.getSelectedItem();
         String sort = (String) cboSort.getSelectedItem();
 
-        List<Story> stories = searchWithFilter(keyword, status, paid, sort);
+        Integer genreId = null;
+        String genreName = (String) cboGenre.getSelectedItem();
+        if (genreName != null && !"Tất cả".equals(genreName) && genreMap.containsKey(genreName)) {
+            genreId = genreMap.get(genreName);
+        }
 
-        if (stories.isEmpty()) {
-            JLabel msg = new JLabel("Không tìm thấy truyện nào phù hợp.");
-            msg.setFont(new Font("Segoe UI", Font.ITALIC, 14));
-            msg.setForeground(Color.GRAY);
-            resultPanel.add(msg);
-        } else {
-            JLabel lbl = new JLabel("Tìm thấy " + stories.size() + " kết quả");
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 15));
-            lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-            resultPanel.add(lbl);
-            resultPanel.add(Box.createVerticalStrut(15));
+        final Integer finalGenreId = genreId;
 
-            for (Story story : stories) {
-                resultPanel.add(createStoryCard(story));
-                resultPanel.add(Box.createVerticalStrut(12));
+        // Xử lý truy vấn dữ liệu bất đồng bộ với SwingWorker
+        new SwingWorker<List<Story>, Void>() {
+            @Override
+            protected List<Story> doInBackground() {
+                return storyDAO.searchWithFilter(keyword, status, paid, sort, finalGenreId);
             }
-        }
-        resultPanel.revalidate();
-        resultPanel.repaint();
-    }
 
-    private List<Story> searchWithFilter(String keyword, String status, String paid, String sort) {
-        List<Story> list = new ArrayList<>();
-        StringBuilder sql = new StringBuilder(
-            "SELECT TOP 50 s.*, u.full_name AS author_name FROM stories s " +
-            "JOIN users u ON s.author_id = u.user_id " +
-            "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 "
-        );
-        List<Object> params = new ArrayList<>();
+            @Override
+            protected void done() {
+                try {
+                    List<Story> stories = get();
+                    resultPanel.removeAll();
 
-        if (!keyword.isEmpty()) {
-            sql.append("AND (s.title LIKE ? OR u.full_name LIKE ? OR s.description LIKE ?) ");
-            String key = "%" + keyword + "%";
-            params.add(key); params.add(key); params.add(key);
-        }
-        if (!"Tất cả".equals(status)) {
-            sql.append("AND s.status = ? ");
-            params.add(status);
-        }
-        if ("Miễn phí".equals(paid)) sql.append("AND s.is_paid = 0 ");
-        else if ("Trả phí".equals(paid)) sql.append("AND s.is_paid = 1 ");
+                    if (stories.isEmpty()) {
+                        JLabel msg = new JLabel("Không tìm thấy truyện nào phù hợp.");
+                        msg.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+                        msg.setForeground(Color.GRAY);
+                        resultPanel.add(msg);
+                    } else {
+                        JLabel lbl = new JLabel("Tìm thấy " + stories.size() + " kết quả");
+                        lbl.setFont(new Font("Segoe UI", Font.BOLD, 15));
+                        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+                        resultPanel.add(lbl);
+                        resultPanel.add(Box.createVerticalStrut(15));
 
-        switch (sort) {
-            case "Lượt xem cao": sql.append("ORDER BY s.view_count DESC"); break;
-            case "Đánh giá cao": sql.append("ORDER BY s.rating_avg DESC"); break;
-            default: sql.append("ORDER BY s.updated_at DESC");
-        }
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            for (int i = 0; i < params.size(); i++) ps.setObject(i + 1, params.get(i));
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Story s = new Story();
-                    s.setStoryId(rs.getInt("story_id"));
-                    s.setAuthorName(rs.getString("author_name"));
-                    s.setTitle(rs.getString("title"));
-                    s.setStatus(rs.getString("status"));
-                    s.setViewCount(rs.getLong("view_count"));
-                    s.setRatingAvg(rs.getDouble("rating_avg"));
-                    list.add(s);
+                        for (Story story : stories) {
+                            resultPanel.add(createStoryCard(story));
+                            resultPanel.add(Box.createVerticalStrut(12));
+                        }
+                    }
+                    resultPanel.revalidate();
+                    resultPanel.repaint();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return list;
+        }.execute();
     }
 
     private JPanel createStoryCard(Story story) {

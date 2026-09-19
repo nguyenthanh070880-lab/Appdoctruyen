@@ -1,17 +1,15 @@
 package com.novelapp.view;
 
+import com.novelapp.config.DatabaseConnection;
 import com.novelapp.dao.StoryDAO;
 import com.novelapp.model.Story;
 import com.novelapp.model.User;
-import com.novelapp.util.DatabaseConnection;
 import com.novelapp.util.SessionManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
+import java.sql.*;
 import java.util.List;
 
 public class HomeFrame extends JFrame {
@@ -55,7 +53,7 @@ public class HomeFrame extends JFrame {
 
         JButton btnLogout = new JButton("Đăng xuất");
         btnLogout.setFocusPainted(false);
-        btnLogout.setBackground(new Color(255, 255, 255));
+        btnLogout.setBackground(Color.WHITE);
         btnLogout.setForeground(new Color(0, 102, 204));
         btnLogout.setBorder(BorderFactory.createEmptyBorder(6, 14, 6, 14));
         btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -112,7 +110,6 @@ public class HomeFrame extends JFrame {
             this.dispose();
         }));
 
-        // Menu Tác giả
         if (currentUser.hasRole("AUTHOR") || currentUser.hasRole("ADMIN")) {
             sidebar.add(Box.createVerticalStrut(25));
             JLabel lblAuthor = new JLabel("  — TÁC GIẢ —");
@@ -131,7 +128,6 @@ public class HomeFrame extends JFrame {
             }));
         }
 
-        // Menu Admin
         if (currentUser.hasRole("ADMIN") || currentUser.hasRole("STAFF")) {
             sidebar.add(Box.createVerticalStrut(25));
             JLabel lblAdmin = new JLabel("  — QUẢN TRỊ —");
@@ -156,18 +152,16 @@ public class HomeFrame extends JFrame {
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.getViewport().setBackground(Color.WHITE);
 
-        // ===== GHÉP =====
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(sidebar, BorderLayout.WEST);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
-
         add(mainPanel);
     }
 
     private void loadStories() {
         contentPanel.removeAll();
 
-        // ===== DANH MỤC THỂ LOẠI =====
+        // ========== 1. DANH MỤC THỂ LOẠI ==========
         JLabel lblGenres = new JLabel("📂  Thể loại");
         lblGenres.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblGenres.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -177,12 +171,11 @@ public class HomeFrame extends JFrame {
         JPanel genrePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         genrePanel.setOpaque(false);
         genrePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        genrePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+        genrePanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
 
-        // Lấy list genre từ DB
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT genre_id, genre_name FROM genres WHERE is_active = 1 ORDER BY genre_name");
+                     "SELECT genre_id, genre_name FROM genres WHERE is_active = 1 ORDER BY genre_name");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 int genreId = rs.getInt("genre_id");
@@ -190,20 +183,23 @@ public class HomeFrame extends JFrame {
                 JButton btn = new JButton(name);
                 btn.setFocusPainted(false);
                 btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                final int gId = genreId;
+                final String gName = name;
                 btn.addActionListener(e -> {
-                    // Mở SearchFrame với filter thể loại (sẽ làm ở bước lọc)
-                    new SearchFrame(genreId, name).setVisible(true);
+                    new SearchFrame(gId, gName).setVisible(true);
                     this.dispose();
                 });
                 genrePanel.add(btn);
             }
         } catch (Exception e) {
             e.printStackTrace();
+            genrePanel.add(new JLabel("Chưa có thể loại."));
         }
         contentPanel.add(genrePanel);
-        contentPanel.add(Box.createVerticalStrut(20));
+        contentPanel.add(Box.createVerticalStrut(25));
 
-        // ===== TRUYỆN NỔI BẬT =====
+        // ========== 2. TRUYỆN NỔI BẬT ==========
         JLabel lblHot = new JLabel("🔥  Truyện nổi bật");
         lblHot.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblHot.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -211,22 +207,24 @@ public class HomeFrame extends JFrame {
         contentPanel.add(Box.createVerticalStrut(12));
 
         List<Story> hotStories = storyDAO.getTopStoriesByView(5);
-        for (Story s : hotStories) {
-            contentPanel.add(createStoryCard(s));
-            contentPanel.add(Box.createVerticalStrut(10));
+        if (hotStories.isEmpty()) {
+            contentPanel.add(new JLabel("Chưa có dữ liệu."));
+        } else {
+            for (Story s : hotStories) {
+                contentPanel.add(createStoryCard(s));
+                contentPanel.add(Box.createVerticalStrut(10));
+            }
         }
-        contentPanel.add(Box.createVerticalStrut(20));
+        contentPanel.add(Box.createVerticalStrut(25));
 
-        // ===== MỚI CẬP NHẬT =====
+        // ========== 3. TRUYỆN MỚI CẬP NHẬT ==========
         JLabel lblTitle = new JLabel("📖  Truyện mới cập nhật");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTitle.setForeground(new Color(30, 30, 30));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
         contentPanel.add(lblTitle);
-        contentPanel.add(Box.createVerticalStrut(20));
+        contentPanel.add(Box.createVerticalStrut(12));
 
         List<Story> stories = storyDAO.getApprovedStories(20);
-
         if (stories.isEmpty()) {
             JLabel empty = new JLabel("Chưa có truyện nào.");
             empty.setFont(new Font("Segoe UI", Font.ITALIC, 15));
@@ -235,7 +233,7 @@ public class HomeFrame extends JFrame {
         } else {
             for (Story story : stories) {
                 contentPanel.add(createStoryCard(story));
-                contentPanel.add(Box.createVerticalStrut(14));
+                contentPanel.add(Box.createVerticalStrut(12));
             }
         }
 
@@ -248,27 +246,25 @@ public class HomeFrame extends JFrame {
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(230, 230, 230)),
-                BorderFactory.createEmptyBorder(16, 20, 16, 20)
+                BorderFactory.createEmptyBorder(14, 18, 14, 18)
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Hover effect
         card.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent e) {
                 card.setBackground(new Color(245, 248, 255));
                 card.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(new Color(0, 102, 204), 2),
-                        BorderFactory.createEmptyBorder(15, 19, 15, 19)
+                        BorderFactory.createEmptyBorder(13, 17, 13, 17)
                 ));
             }
-
             public void mouseExited(java.awt.event.MouseEvent e) {
                 card.setBackground(Color.WHITE);
                 card.setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(new Color(230, 230, 230)),
-                        BorderFactory.createEmptyBorder(16, 20, 16, 20)
+                        BorderFactory.createEmptyBorder(14, 18, 14, 18)
                 ));
             }
         });
@@ -278,7 +274,7 @@ public class HomeFrame extends JFrame {
         infoPanel.setOpaque(false);
 
         JLabel lblTitle = new JLabel(story.getTitle());
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTitle.setForeground(new Color(25, 25, 25));
 
         JLabel lblAuthor = new JLabel("Tác giả: " + story.getAuthorName());
@@ -291,9 +287,9 @@ public class HomeFrame extends JFrame {
         lblMeta.setForeground(new Color(130, 130, 130));
 
         infoPanel.add(lblTitle);
-        infoPanel.add(Box.createVerticalStrut(6));
+        infoPanel.add(Box.createVerticalStrut(5));
         infoPanel.add(lblAuthor);
-        infoPanel.add(Box.createVerticalStrut(6));
+        infoPanel.add(Box.createVerticalStrut(5));
         infoPanel.add(lblMeta);
 
         JButton btnDetail = new JButton("Xem chi tiết →");
@@ -311,7 +307,6 @@ public class HomeFrame extends JFrame {
 
         card.add(infoPanel, BorderLayout.CENTER);
         card.add(btnDetail, BorderLayout.EAST);
-
         return card;
     }
 
@@ -330,19 +325,16 @@ public class HomeFrame extends JFrame {
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
 
-        // Hover
         btn.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent e) {
                 btn.setBackground(new Color(0, 102, 204));
                 btn.setForeground(Color.WHITE);
             }
-
             public void mouseExited(java.awt.event.MouseEvent e) {
                 btn.setBackground(Color.WHITE);
                 btn.setForeground(new Color(50, 50, 50));
             }
         });
-
         btn.addActionListener(action);
         return btn;
     }

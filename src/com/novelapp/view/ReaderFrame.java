@@ -1,19 +1,17 @@
 package com.novelapp.view;
 
+import com.novelapp.config.DatabaseConnection;
 import com.novelapp.dao.ChapterAccessDAO;
 import com.novelapp.dao.ChapterDAO;
 import com.novelapp.dao.WalletDAO;
-import com.novelapp.dao.ReportDAO;
 import com.novelapp.model.Chapter;
 import com.novelapp.model.User;
 import com.novelapp.util.SessionManager;
-import com.novelapp.config.DatabaseConnection;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
+import java.sql.*;
 
 public class ReaderFrame extends JFrame {
 
@@ -23,7 +21,9 @@ public class ReaderFrame extends JFrame {
     private JLabel lblTitle;
     private JButton btnPrev;
     private JButton btnNext;
+    private JScrollPane scrollPane;
     private float fontSize = 17f;
+    private boolean darkMode = false;
     private final User currentUser;
 
     public ReaderFrame(int chapterId) {
@@ -40,6 +40,7 @@ public class ReaderFrame extends JFrame {
         saveReadingHistory();
         initComponents();
         updateNavigationButtons();
+        restoreScrollPosition();
     }
 
     private void initComponents() {
@@ -66,17 +67,24 @@ public class ReaderFrame extends JFrame {
 
         JButton btnZoomOut = createHeaderButton("A-");
         JButton btnZoomIn = createHeaderButton("A+");
+        JButton btnTheme = createHeaderButton("🌙 Tối");
+        JButton btnReport = createHeaderButton("🚩 Báo cáo");
         JButton btnBack = createHeaderButton("Quay lại");
 
         btnZoomOut.addActionListener(e -> changeFontSize(-1.5f));
         btnZoomIn.addActionListener(e -> changeFontSize(1.5f));
+        btnTheme.addActionListener(e -> toggleTheme(btnTheme));
+        btnReport.addActionListener(e -> showReportChapterDialog());
         btnBack.addActionListener(e -> {
+            saveScrollPosition();
             new StoryDetailFrame(chapter.getStoryId()).setVisible(true);
             this.dispose();
         });
 
         controlPanel.add(btnZoomOut);
         controlPanel.add(btnZoomIn);
+        controlPanel.add(btnTheme);
+        controlPanel.add(btnReport);
         controlPanel.add(btnBack);
 
         headerPanel.add(lblTitle, BorderLayout.WEST);
@@ -92,7 +100,7 @@ public class ReaderFrame extends JFrame {
         txtContent.setBackground(Color.WHITE);
         updateContent();
 
-        JScrollPane scrollPane = new JScrollPane(txtContent);
+        scrollPane = new JScrollPane(txtContent);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(22);
 
@@ -106,22 +114,21 @@ public class ReaderFrame extends JFrame {
         styleNavButton(btnPrev);
         styleNavButton(btnNext);
 
-        btnPrev.addActionListener(e -> goToPreviousChapter());
-        btnNext.addActionListener(e -> goToNextChapter());
+        btnPrev.addActionListener(e -> {
+            saveScrollPosition();
+            goToPreviousChapter();
+        });
+        btnNext.addActionListener(e -> {
+            saveScrollPosition();
+            goToNextChapter();
+        });
 
         footerPanel.add(btnPrev);
         footerPanel.add(btnNext);
 
-        JButton btnReportChapter = new JButton("🚩 Báo cáo chương");
-        btnReportChapter.setFocusPainted(false);
-        btnReportChapter.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnReportChapter.addActionListener(e -> showReportChapterDialog());
-        footerPanel.add(btnReportChapter);
-
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
         mainPanel.add(footerPanel, BorderLayout.SOUTH);
-
         add(mainPanel);
     }
 
@@ -141,10 +148,21 @@ public class ReaderFrame extends JFrame {
         btn.setBackground(Color.WHITE);
         btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                BorderFactory.createEmptyBorder(6, 12, 6, 12)
-        ));
+    }
+
+    private void toggleTheme(JButton btnTheme) {
+        darkMode = !darkMode;
+        if (darkMode) {
+            txtContent.setBackground(new Color(30, 30, 30));
+            txtContent.setForeground(new Color(220, 220, 220));
+            scrollPane.getViewport().setBackground(new Color(30, 30, 30));
+            btnTheme.setText("☀️ Sáng");
+        } else {
+            txtContent.setBackground(Color.WHITE);
+            txtContent.setForeground(Color.BLACK);
+            scrollPane.getViewport().setBackground(Color.WHITE);
+            btnTheme.setText("🌙 Tối");
+        }
     }
 
     private void updateTitle() {
@@ -178,38 +196,26 @@ public class ReaderFrame extends JFrame {
             loadChapter(targetChapter);
             return;
         }
-
         ChapterAccessDAO accessDAO = new ChapterAccessDAO();
         WalletDAO walletDAO = new WalletDAO();
-
         if (accessDAO.hasAccess(currentUser.getUserId(), targetChapter.getChapterId())) {
             loadChapter(targetChapter);
             return;
         }
-
         int price = targetChapter.getPriceCoin();
         long balance = walletDAO.getBalance(currentUser.getUserId());
-
         int choice = JOptionPane.showConfirmDialog(this,
-                "Chương này cần " + price + " Coin để mở khóa.\nSố dư hiện tại: " + balance + " Coin\n\nBạn có muốn mở khóa không?",
+                "Chương này cần " + price + " Coin.\nSố dư: " + balance + " Coin\nMở khóa?",
                 "Mở khóa chương", JOptionPane.YES_NO_OPTION);
-
         if (choice != JOptionPane.YES_OPTION) return;
-
         if (balance < price) {
-            JOptionPane.showMessageDialog(this, "Bạn không đủ Coin!", "Không đủ tiền", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Không đủ Coin!");
             return;
         }
-
-        boolean success = walletDAO.deductCoin(currentUser.getUserId(), price, "UNLOCK",
-                "Mở khóa chương " + (int) targetChapter.getChapterNumber() + ": " + targetChapter.getTitle());
-
-        if (success) {
+        if (walletDAO.deductCoin(currentUser.getUserId(), price, "UNLOCK",
+                "Mở khóa chương " + (int) targetChapter.getChapterNumber())) {
             accessDAO.grantAccess(currentUser.getUserId(), targetChapter.getChapterId(), "PURCHASE");
-            JOptionPane.showMessageDialog(this, "Mở khóa thành công!");
             loadChapter(targetChapter);
-        } else {
-            JOptionPane.showMessageDialog(this, "Mở khóa thất bại!");
         }
     }
 
@@ -220,6 +226,7 @@ public class ReaderFrame extends JFrame {
         updateTitle();
         updateContent();
         updateNavigationButtons();
+        restoreScrollPosition();
     }
 
     private void changeFontSize(float delta) {
@@ -231,7 +238,6 @@ public class ReaderFrame extends JFrame {
 
     private void saveReadingHistory() {
         if (currentUser == null) return;
-
         String sql = "MERGE reading_history AS target "
                    + "USING (SELECT ? AS user_id, ? AS story_id, ? AS chapter_id) AS source "
                    + "ON target.user_id = source.user_id AND target.story_id = source.story_id "
@@ -240,7 +246,6 @@ public class ReaderFrame extends JFrame {
                    + "WHEN NOT MATCHED THEN "
                    + "  INSERT (user_id, story_id, chapter_id, last_read_at) "
                    + "  VALUES (source.user_id, source.story_id, source.chapter_id, GETDATE());";
-
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, currentUser.getUserId());
@@ -252,62 +257,58 @@ public class ReaderFrame extends JFrame {
         }
     }
 
+    private void saveScrollPosition() {
+        if (currentUser == null || chapter == null || scrollPane == null) return;
+        int pos = scrollPane.getVerticalScrollBar().getValue();
+        String sql = "UPDATE reading_history SET scroll_position = ?, last_read_at = GETDATE() "
+                   + "WHERE user_id = ? AND story_id = ? AND chapter_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, pos);
+            ps.setInt(2, currentUser.getUserId());
+            ps.setInt(3, chapter.getStoryId());
+            ps.setInt(4, chapter.getChapterId());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            // bỏ qua nếu chưa có cột
+        }
+    }
+
+    private void restoreScrollPosition() {
+        if (currentUser == null || chapter == null || scrollPane == null) return;
+        String sql = "SELECT scroll_position FROM reading_history "
+                   + "WHERE user_id = ? AND story_id = ? AND chapter_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, currentUser.getUserId());
+            ps.setInt(2, chapter.getStoryId());
+            ps.setInt(3, chapter.getChapterId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int pos = rs.getInt("scroll_position");
+                    SwingUtilities.invokeLater(() ->
+                            scrollPane.getVerticalScrollBar().setValue(pos));
+                }
+            }
+        } catch (SQLException e) {
+            // bỏ qua
+        }
+    }
+
     private void showReportChapterDialog() {
-        String[] reasons = {
-            "Nội dung vi phạm",
-            "Spam / Quảng cáo",
-            "Nội dung không phù hợp",
-            "Lỗi kỹ thuật",
-            "Trùng lặp",
-            "Khác"
-        };
-
+        String[] reasons = {"Nội dung vi phạm", "Spam", "Không phù hợp", "Lỗi kỹ thuật", "Khác"};
         JComboBox<String> cbo = new JComboBox<>(reasons);
-
         JTextArea desc = new JTextArea(4, 25);
         desc.setLineWrap(true);
-        desc.setWrapStyleWord(true);
-        desc.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-
         JPanel panel = new JPanel(new BorderLayout(5, 8));
-        panel.add(new JLabel("Lý do báo cáo chương:"), BorderLayout.NORTH);
-
-        JPanel center = new JPanel(new BorderLayout(5, 5));
-        center.add(cbo, BorderLayout.NORTH);
-        center.add(new JScrollPane(desc), BorderLayout.CENTER);
-
-        panel.add(center, BorderLayout.CENTER);
-
-        int result = JOptionPane.showConfirmDialog(
-                this,
-                panel,
-                "Báo cáo chương",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (result == JOptionPane.OK_OPTION) {
-            ReportDAO reportDAO = new ReportDAO();
-
-            boolean ok = reportDAO.createReport(
-                    currentUser.getUserId(),
-                    "CHAPTER",
-                    chapter.getChapterId(),
-                    (String) cbo.getSelectedItem(),
-                    desc.getText().trim()
-            );
-
-            if (ok) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Đã gửi báo cáo chương. Cảm ơn bạn!"
-                );
-            } else {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Gửi báo cáo thất bại!"
-                );
-            }
+        panel.add(cbo, BorderLayout.NORTH);
+        panel.add(new JScrollPane(desc), BorderLayout.CENTER);
+        if (JOptionPane.showConfirmDialog(this, panel, "Báo cáo chương",
+                JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION) {
+            new com.novelapp.dao.ReportDAO().createReport(
+                    currentUser.getUserId(), "CHAPTER", chapter.getChapterId(),
+                    (String) cbo.getSelectedItem(), desc.getText().trim());
+            JOptionPane.showMessageDialog(this, "Đã gửi báo cáo!");
         }
     }
 }

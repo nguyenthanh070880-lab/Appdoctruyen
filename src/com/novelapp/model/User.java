@@ -11,6 +11,7 @@ public class User {
     private String passwordHash;
     private String fullName;
     private LocalDate dateOfBirth;
+    private String birthDate;            // Bổ sung trường birthDate
     private String avatarUrl;
     private String phone;
     private String status;               // ACTIVE, LOCKED, BANNED
@@ -51,6 +52,9 @@ public class User {
     
     public LocalDate getDateOfBirth() { return dateOfBirth; }
     public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
+    
+    public String getBirthDate() { return birthDate; }
+    public void setBirthDate(String birthDate) { this.birthDate = birthDate; }
     
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
