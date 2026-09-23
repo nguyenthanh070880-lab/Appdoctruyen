@@ -9,6 +9,9 @@ import java.util.Map;
 
 public class NotificationDAO {
 
+    /**
+     * Lấy danh sách 50 thông báo mới nhất của user
+     */
     public List<Map<String, Object>> getNotifications(int userId) {
         List<Map<String, Object>> list = new ArrayList<>();
         String sql = "SELECT TOP 50 notification_id, title, content, type, is_read, created_at "
@@ -35,6 +38,9 @@ public class NotificationDAO {
         return list;
     }
 
+    /**
+     * Đánh dấu 1 thông báo là đã đọc
+     */
     public void markAsRead(int notificationId) {
         String sql = "UPDATE notifications SET is_read = 1 WHERE notification_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -46,6 +52,9 @@ public class NotificationDAO {
         }
     }
 
+    /**
+     * Đánh dấu tất cả thông báo của user là đã đọc
+     */
     public void markAllAsRead(int userId) {
         String sql = "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -57,6 +66,9 @@ public class NotificationDAO {
         }
     }
 
+    /**
+     * Đếm số thông báo chưa đọc
+     */
     public int countUnread(int userId) {
         String sql = "SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -71,9 +83,19 @@ public class NotificationDAO {
         return 0;
     }
 
-    // Tạo thông báo (dùng nội bộ)
+    /**
+     * Tạo thông báo mới (phiên bản chuẩn)
+     */
     public void createNotification(int userId, String title, String content, String type) {
-        String sql = "INSERT INTO notifications (user_id, title, content, type) VALUES (?, ?, ?, ?)";
+        send(userId, title, content, type);
+    }
+
+    /**
+     * Helper gửi thông báo sự kiện / hệ thống ngắn gọn (gắn sẵn is_read = 0 và GETDATE())
+     */
+    public void send(int userId, String title, String content, String type) {
+        String sql = "INSERT INTO notifications (user_id, title, content, type, is_read, created_at) "
+                   + "VALUES (?, ?, ?, ?, 0, GETDATE())";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
@@ -83,6 +105,21 @@ public class NotificationDAO {
             ps.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Support gửi thông báo bằng kết nối Transaction có sẵn (cho phép rollback cùng vụ giao dịch)
+     */
+    public void send(Connection conn, int userId, String title, String content, String type) throws SQLException {
+        String sql = "INSERT INTO notifications (user_id, title, content, type, is_read, created_at) "
+                   + "VALUES (?, ?, ?, ?, 0, GETDATE())";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setString(2, title);
+            ps.setString(3, content);
+            ps.setString(4, type);
+            ps.executeUpdate();
         }
     }
 }

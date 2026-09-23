@@ -28,7 +28,7 @@ public class AuthorStatsFrame extends JFrame {
     private void initComponents() {
         setTitle("Thống kê & Doanh thu - Tác giả");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1100, 750);
+        setSize(1200, 750);
         setLocationRelativeTo(null);
 
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -119,12 +119,34 @@ public class AuthorStatsFrame extends JFrame {
         monthTablePanel.add(lblMonth, BorderLayout.NORTH);
         monthTablePanel.add(new JScrollPane(monthTable), BorderLayout.CENTER);
 
-        // --- CHIA BẢNG RA THÀNH 2 PHẦN (JSplitPane hoặc GridLayout) ---
-        JPanel tablesContainer = new JPanel(new GridLayout(1, 2, 15, 0));
+        // --- 4. BẢNG DOANH THU THEO NGÀY ---
+        JPanel dayTablePanel = new JPanel(new BorderLayout(0, 8));
+        dayTablePanel.setBackground(Color.WHITE);
+        dayTablePanel.setBorder(new EmptyBorder(10, 15, 10, 15));
+
+        JLabel lblDay = new JLabel("Doanh thu theo ngày");
+        lblDay.setFont(new Font("Segoe UI", Font.BOLD, 15));
+
+        String[] dayCols = {"Ngày", "Doanh thu (Coin)"};
+        DefaultTableModel dayModel = new DefaultTableModel(dayCols, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable dayTable = new JTable(dayModel);
+        setupTableStyle(dayTable);
+
+        loadDailyRevenue(dayModel);
+
+        dayTablePanel.add(lblDay, BorderLayout.NORTH);
+        dayTablePanel.add(new JScrollPane(dayTable), BorderLayout.CENTER);
+
+        // --- BỐ CỤC CHIA 3 BẢNG ---
+        JPanel tablesContainer = new JPanel(new GridLayout(1, 3, 15, 0));
         tablesContainer.setOpaque(false);
         tablesContainer.setBorder(new EmptyBorder(0, 25, 20, 25));
         tablesContainer.add(storyTablePanel);
         tablesContainer.add(monthTablePanel);
+        tablesContainer.add(dayTablePanel);
 
         JPanel center = new JPanel(new BorderLayout());
         center.setOpaque(false);
@@ -265,6 +287,32 @@ public class AuthorStatsFrame extends JFrame {
                     monthModel.addRow(new Object[]{
                         rs.getInt("y"),
                         rs.getInt("m"),
+                        rs.getLong("revenue")
+                    });
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadDailyRevenue(DefaultTableModel dayModel) {
+        dayModel.setRowCount(0);
+        String sqlDay = "SELECT CAST(ca.created_at AS DATE) AS d, ISNULL(SUM(c.price_coin), 0) AS revenue "
+                      + "FROM chapter_access ca "
+                      + "JOIN chapters c ON ca.chapter_id = c.chapter_id "
+                      + "JOIN stories s ON c.story_id = s.story_id "
+                      + "WHERE s.author_id = ? AND ca.access_type = 'PURCHASE' AND ISNULL(c.is_free, 0) = 0 "
+                      + "GROUP BY CAST(ca.created_at AS DATE) "
+                      + "ORDER BY d DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlDay)) {
+            ps.setInt(1, currentUser.getUserId());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    dayModel.addRow(new Object[]{
+                        rs.getDate("d"),
                         rs.getLong("revenue")
                     });
                 }

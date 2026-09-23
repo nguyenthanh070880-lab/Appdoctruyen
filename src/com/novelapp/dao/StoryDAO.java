@@ -17,7 +17,7 @@ public class StoryDAO {
         String sql = "SELECT TOP (?) s.*, u.full_name AS author_name "
                 + "FROM stories s "
                 + "JOIN users u ON s.author_id = u.user_id "
-                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 "
+                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 AND ISNULL(s.is_hidden, 0) = 0 "
                 + "ORDER BY s.updated_at DESC";
 
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -64,7 +64,7 @@ public class StoryDAO {
         String sql = "SELECT TOP 50 s.*, u.full_name AS author_name "
                 + "FROM stories s "
                 + "JOIN users u ON s.author_id = u.user_id "
-                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 "
+                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 AND ISNULL(s.is_hidden, 0) = 0 "
                 + "AND (s.title LIKE ? OR u.full_name LIKE ? OR s.description LIKE ?) "
                 + "ORDER BY s.view_count DESC";
 
@@ -93,7 +93,7 @@ public class StoryDAO {
         String sql = "SELECT TOP (?) s.*, u.full_name AS author_name "
                 + "FROM stories s "
                 + "JOIN users u ON s.author_id = u.user_id "
-                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 "
+                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 AND ISNULL(s.is_hidden, 0) = 0 "
                 + "ORDER BY s.view_count DESC";
 
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -116,7 +116,7 @@ public class StoryDAO {
         String sql = "SELECT TOP (?) s.*, u.full_name AS author_name "
                 + "FROM stories s "
                 + "JOIN users u ON s.author_id = u.user_id "
-                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 AND s.rating_count > 0 "
+                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 AND ISNULL(s.is_hidden, 0) = 0 AND s.rating_count > 0 "
                 + "ORDER BY s.rating_avg DESC, s.rating_count DESC";
 
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -139,7 +139,7 @@ public class StoryDAO {
         String sql = "SELECT TOP (?) s.*, u.full_name AS author_name "
                 + "FROM stories s "
                 + "JOIN users u ON s.author_id = u.user_id "
-                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 "
+                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 AND ISNULL(s.is_hidden, 0) = 0 "
                 + "ORDER BY (s.view_count * 0.4 + s.follow_count * 0.3 + s.rating_avg * 100 * 0.3) DESC";
 
         try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -314,7 +314,7 @@ public class StoryDAO {
         StringBuilder sql = new StringBuilder(
                 "SELECT TOP 50 s.*, u.full_name AS author_name FROM stories s "
                 + "JOIN users u ON s.author_id = u.user_id "
-                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 "
+                + "WHERE s.moderation_status = 'APPROVED' AND s.is_deleted = 0 AND ISNULL(s.is_hidden, 0) = 0 "
         );
         List<Object> params = new ArrayList<>();
 

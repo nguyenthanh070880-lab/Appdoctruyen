@@ -30,7 +30,7 @@ public class AdminDashboardFrame extends JFrame {
     private void initComponents() {
         setTitle("Admin Dashboard - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1050, 750);
+        setSize(1150, 800);
         setLocationRelativeTo(null);
 
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -64,26 +64,44 @@ public class AdminDashboardFrame extends JFrame {
         contentPanel.setOpaque(false);
         contentPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
 
-        // -- Load Thống kê nhanh --
-        long newUsers = queryLong(
-            "SELECT COUNT(*) FROM users WHERE ISNULL(is_deleted, 0) = 0 AND created_at >= DATEADD(DAY, -7, GETDATE())"
-        );
-        long failedOrders = queryLong(
-            "SELECT COUNT(*) FROM payment_orders WHERE status IN ('FAILED', 'CANCELLED')"
-        );
+        // -- Truy vấn các chỉ số thống kê tổng quan --
+        long totalUsers = q("SELECT COUNT(*) FROM users WHERE ISNULL(is_deleted,0)=0");
+        long newUsers = q("SELECT COUNT(*) FROM users WHERE ISNULL(is_deleted,0)=0 AND created_at>=DATEADD(DAY,-7,GETDATE())");
+        long totalStories = q("SELECT COUNT(*) FROM stories WHERE ISNULL(is_deleted,0)=0");
+        long totalChapters = q("SELECT COUNT(*) FROM chapters WHERE ISNULL(is_deleted,0)=0");
+        long pendingReports = q("SELECT COUNT(*) FROM reports WHERE status='PENDING'");
+        long totalCoins = q("SELECT ISNULL(SUM(coin_amount),0) FROM payment_orders WHERE status='SUCCESS'");
+        long totalVnd = q("SELECT ISNULL(SUM(amount_vnd),0) FROM payment_orders WHERE status='SUCCESS'");
+        long successOrders = q("SELECT COUNT(*) FROM payment_orders WHERE status='SUCCESS'");
+        long failedOrders = q("SELECT COUNT(*) FROM payment_orders WHERE status='FAILED' OR status='CANCELLED'");
 
-        // -- Stats Bar Panel --
-        JPanel statsPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        // -- Thống kê tổng quan (Thẻ lớn) Grid 3x3 --
+        JPanel statsPanel = new JPanel(new GridLayout(3, 3, 12, 12));
         statsPanel.setOpaque(false);
-        statsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+        statsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 260));
 
-        statsPanel.add(createStatCard("👤 User mới (7 ngày)", String.valueOf(newUsers), new Color(0, 153, 76)));
-        statsPanel.add(createStatCard("⚠️ Đơn nạp thất bại / Hủy", String.valueOf(failedOrders), new Color(220, 53, 69)));
+        statsPanel.add(createStatCard("👥 Tổng User", String.format("%,d", totalUsers), new Color(0, 102, 204)));
+        statsPanel.add(createStatCard("👤 User mới (7 ngày)", String.format("%,d", newUsers), new Color(0, 153, 76)));
+        statsPanel.add(createStatCard("📚 Tổng Truyện", String.format("%,d", totalStories), new Color(102, 16, 242)));
+        statsPanel.add(createStatCard("📖 Tổng Chương", String.format("%,d", totalChapters), new Color(23, 162, 184)));
+        statsPanel.add(createStatCard("🚨 Báo cáo chờ xử lý", String.format("%,d", pendingReports), new Color(255, 193, 7)));
+        statsPanel.add(createStatCard("🪙 Tổng Coin nạp", String.format("%,d", totalCoins), new Color(255, 140, 0)));
+        statsPanel.add(createStatCard("💵 Doanh thu VNĐ", String.format("%,d đ", totalVnd), new Color(40, 167, 69)));
+        statsPanel.add(createStatCard("✅ Đơn nạp thành công", String.format("%,d", successOrders), new Color(32, 201, 151)));
+        statsPanel.add(createStatCard("⚠️ Đơn nạp thất bại / Hủy", String.format("%,d", failedOrders), new Color(220, 53, 69)));
 
         contentPanel.add(statsPanel);
-        contentPanel.add(Box.createVerticalStrut(20));
+        contentPanel.add(Box.createVerticalStrut(25));
 
-        // -- Menu Cards Grid (Layout 3 cột x 4 hàng) --
+        // -- Dynamic Section Label --
+        JLabel lblMenuHeader = new JLabel("Chức năng quản trị");
+        lblMenuHeader.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblMenuHeader.setForeground(new Color(50, 50, 50));
+        lblMenuHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
+        contentPanel.add(lblMenuHeader);
+        contentPanel.add(Box.createVerticalStrut(10));
+
+        // -- Menu Cards Grid (Layout 3 cột) --
         JPanel menuPanel = new JPanel(new GridLayout(0, 3, 15, 15));
         menuPanel.setOpaque(false);
 
@@ -142,7 +160,7 @@ public class AdminDashboardFrame extends JFrame {
         // ScrollPane hỗ trợ cuộn mượt mà khi màn hình nhỏ
         JScrollPane scrollPane = new JScrollPane(contentPanel);
         scrollPane.setBorder(null);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(12);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(14);
 
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
@@ -153,19 +171,19 @@ public class AdminDashboardFrame extends JFrame {
         JPanel card = new JPanel(new BorderLayout(5, 5));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 5, 0, 0, accentColor),
+                BorderFactory.createMatteBorder(0, 4, 0, 0, accentColor),
                 BorderFactory.createCompoundBorder(
                         BorderFactory.createLineBorder(new Color(230, 230, 230)),
-                        new EmptyBorder(12, 18, 12, 18)
+                        new EmptyBorder(10, 14, 10, 14)
                 )
         ));
 
         JLabel lblTitle = new JLabel(title);
-        lblTitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblTitle.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblTitle.setForeground(new Color(100, 100, 100));
 
         JLabel lblVal = new JLabel(value);
-        lblVal.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lblVal.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblVal.setForeground(accentColor);
 
         card.add(lblTitle, BorderLayout.NORTH);
@@ -208,9 +226,9 @@ public class AdminDashboardFrame extends JFrame {
         return card;
     }
 
-    private long queryLong(String sql) {
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
+    private long q(String sql) {
+        try (Connection c = DatabaseConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) return rs.getLong(1);
         } catch (SQLException e) {

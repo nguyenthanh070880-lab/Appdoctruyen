@@ -16,6 +16,7 @@ public class AdminUserFrame extends JFrame {
     private final User currentUser;
     private DefaultTableModel model;
     private JTable table;
+    private JTextField txtSearch;
 
     public AdminUserFrame() {
         this.currentUser = SessionManager.getCurrentUser();
@@ -26,7 +27,7 @@ public class AdminUserFrame extends JFrame {
             return;
         }
         initComponents();
-        loadUsers();
+        loadUsers("");
     }
 
     private void initComponents() {
@@ -38,6 +39,7 @@ public class AdminUserFrame extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(Color.WHITE);
 
+        // 1. Header + Search Bar
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(new Color(0, 102, 204));
         header.setBorder(new EmptyBorder(15, 25, 15, 25));
@@ -45,8 +47,29 @@ public class AdminUserFrame extends JFrame {
         JLabel lbl = new JLabel("👥 Quản lý người dùng & Phân quyền");
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lbl.setForeground(Color.WHITE);
-        header.add(lbl, BorderLayout.WEST);
 
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        searchPanel.setOpaque(false);
+
+        JLabel lblSearch = new JLabel("Tìm kiếm:");
+        lblSearch.setForeground(Color.WHITE);
+        lblSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+        txtSearch = new JTextField(16);
+        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtSearch.addActionListener(e -> loadUsers(txtSearch.getText().trim()));
+
+        JButton btnSearch = createBtn("Tìm", new Color(0, 153, 76));
+        btnSearch.addActionListener(e -> loadUsers(txtSearch.getText().trim()));
+
+        searchPanel.add(lblSearch);
+        searchPanel.add(txtSearch);
+        searchPanel.add(btnSearch);
+
+        header.add(lbl, BorderLayout.WEST);
+        header.add(searchPanel, BorderLayout.EAST);
+
+        // 2. Table
         String[] columns = {"ID", "Username", "Họ tên", "Email", "Trạng thái", "Role", "Ngày tạo"};
         model = new DefaultTableModel(columns, 0) {
             @Override
@@ -62,6 +85,7 @@ public class AdminUserFrame extends JFrame {
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
 
+        // 3. Bottom Action Buttons
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 10));
         bottom.setBackground(Color.WHITE);
 
@@ -88,7 +112,10 @@ public class AdminUserFrame extends JFrame {
         btnSetStaff.addActionListener(e -> assignRole("STAFF"));
         btnRemoveStaff.addActionListener(e -> removeRole("STAFF"));
         btnSetAdmin.addActionListener(e -> assignRole("ADMIN"));
-        btnRefresh.addActionListener(e -> loadUsers());
+        btnRefresh.addActionListener(e -> {
+            txtSearch.setText("");
+            loadUsers("");
+        });
         btnBack.addActionListener(e -> {
             new AdminDashboardFrame().setVisible(true);
             this.dispose();
@@ -116,6 +143,7 @@ public class AdminUserFrame extends JFrame {
     private JButton createBtn(String text, Color bg) {
         JButton btn = new JButton(text);
         btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         if (bg != null) {
             btn.setBackground(bg);
             btn.setForeground(Color.WHITE);
@@ -124,29 +152,47 @@ public class AdminUserFrame extends JFrame {
         return btn;
     }
 
-    private void loadUsers() {
+    private void loadUsers(String keyword) {
         model.setRowCount(0);
-        String sql = "SELECT u.user_id, u.username, u.full_name, u.email, u.status, u.created_at, "
-                   + "STUFF((SELECT ', ' + r.role_name FROM user_roles ur "
-                   + "JOIN roles r ON ur.role_id = r.role_id WHERE ur.user_id = u.user_id FOR XML PATH('')), 1, 2, '') AS roles "
-                   + "FROM users u WHERE u.is_deleted = 0 ORDER BY u.created_at DESC";
+        StringBuilder sql = new StringBuilder(
+                "SELECT u.user_id, u.username, u.full_name, u.email, u.status, u.created_at, "
+                + "STUFF((SELECT ', ' + r.role_name FROM user_roles ur "
+                + "JOIN roles r ON ur.role_id = r.role_id WHERE ur.user_id = u.user_id FOR XML PATH('')), 1, 2, '') AS roles "
+                + "FROM users u WHERE u.is_deleted = 0 "
+        );
+
+        boolean hasKeyword = keyword != null && !keyword.trim().isEmpty();
+        if (hasKeyword) {
+            sql.append("AND (u.username LIKE ? OR u.email LIKE ? OR u.full_name LIKE ?) ");
+        }
+        sql.append("ORDER BY u.created_at DESC");
+
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                model.addRow(new Object[]{
-                    rs.getInt("user_id"),
-                    rs.getString("username"),
-                    rs.getString("full_name"),
-                    rs.getString("email"),
-                    rs.getString("status"),
-                    rs.getString("roles"),
-                    rs.getTimestamp("created_at")
-                });
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+
+            if (hasKeyword) {
+                String searchPattern = "%" + keyword.trim() + "%";
+                ps.setString(1, searchPattern);
+                ps.setString(2, searchPattern);
+                ps.setString(3, searchPattern);
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    model.addRow(new Object[]{
+                        rs.getInt("user_id"),
+                        rs.getString("username"),
+                        rs.getString("full_name"),
+                        rs.getString("email"),
+                        rs.getString("status"),
+                        rs.getString("roles"),
+                        rs.getTimestamp("created_at")
+                    });
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi tải user: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "Lỗi tải danh sách user: " + e.getMessage());
         }
     }
 
@@ -186,7 +232,7 @@ public class AdminUserFrame extends JFrame {
         if (err == null) {
             logActivity(currentUser.getUserId(), "ADMIN_ADD_USER", "Tạo user " + username);
             JOptionPane.showMessageDialog(this, "Thêm người dùng thành công!");
-            loadUsers();
+            loadUsers(txtSearch.getText().trim());
         } else {
             JOptionPane.showMessageDialog(this, err);
         }
@@ -229,7 +275,7 @@ public class AdminUserFrame extends JFrame {
             if (ps.executeUpdate() > 0) {
                 logActivity(currentUser.getUserId(), "ADMIN_EDIT_USER", "Sửa user_id=" + userId);
                 JOptionPane.showMessageDialog(this, "Đã cập nhật thành công!");
-                loadUsers();
+                loadUsers(txtSearch.getText().trim());
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -240,12 +286,12 @@ public class AdminUserFrame extends JFrame {
     private void showActivityLogs() {
         String[] cols = {"Thời gian", "User", "Hành động", "Mô tả"};
         DefaultTableModel logModel = new DefaultTableModel(cols, 0) {
+            @Override
             public boolean isCellEditable(int r, int c) {
                 return false;
             }
         };
 
-        // Đổi action_type thành action nếu DB của bạn đặt tên action
         String sql = "SELECT TOP 100 l.created_at, u.username, l.action_type, l.description "
                    + "FROM activity_logs l "
                    + "JOIN users u ON l.user_id = u.user_id "
@@ -295,7 +341,7 @@ public class AdminUserFrame extends JFrame {
             ps.executeUpdate();
             logActivity(currentUser.getUserId(), "ADMIN_CHANGE_STATUS",
                     "Đổi status user_id=" + userId + " -> " + status);
-            loadUsers();
+            loadUsers(txtSearch.getText().trim());
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -322,7 +368,7 @@ public class AdminUserFrame extends JFrame {
             logActivity(currentUser.getUserId(), "ADMIN_ASSIGN_ROLE",
                     "Cấp " + roleName + " cho user_id=" + userId);
             JOptionPane.showMessageDialog(this, "Cấp quyền " + roleName + " thành công!");
-            loadUsers();
+            loadUsers(txtSearch.getText().trim());
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -349,7 +395,7 @@ public class AdminUserFrame extends JFrame {
             logActivity(currentUser.getUserId(), "ADMIN_REMOVE_ROLE",
                     "Thu hồi " + roleName + " của user_id=" + userId);
             JOptionPane.showMessageDialog(this, "Đã thu hồi quyền " + roleName + "!");
-            loadUsers();
+            loadUsers(txtSearch.getText().trim());
         } catch (SQLException e) {
             e.printStackTrace();
         }
