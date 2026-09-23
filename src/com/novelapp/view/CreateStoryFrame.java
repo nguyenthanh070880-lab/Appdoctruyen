@@ -8,202 +8,194 @@ import com.novelapp.util.SessionManager;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.io.File;
 import java.sql.*;
-import java.text.Normalizer;
-import java.util.regex.Pattern;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class CreateStoryFrame extends JFrame {
 
     private final User currentUser;
     private final StoryDAO storyDAO = new StoryDAO();
+
     private JTextField txtTitle;
-    private JTextArea txtDescription;
+    private JTextField txtAuthorName;
     private JComboBox<String> cboStatus;
-    private JLabel lblCoverPreview;
-    private String selectedCoverPath = null;
+    private JList<String> listGenres;
+    private DefaultListModel<String> genreListModel;
+    private final Map<String, Integer> genreMap = new HashMap<>();
+    private JTextArea txtDescription;
 
     public CreateStoryFrame() {
         this.currentUser = SessionManager.getCurrentUser();
-        if (currentUser == null) {
-            new LoginFrame().setVisible(true);
+        if (currentUser == null || (!currentUser.hasRole("AUTHOR") && !currentUser.hasRole("ADMIN"))) {
+            JOptionPane.showMessageDialog(null, "Bạn không có quyền!");
+            new HomeFrame().setVisible(true);
             this.dispose();
             return;
         }
         initComponents();
+        loadGenresToList();
     }
 
     private void initComponents() {
         setTitle("Thêm truyện mới - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(600, 650);
+        setSize(560, 620);
         setLocationRelativeTo(null);
         setResizable(false);
 
-        JPanel mainPanel = new JPanel(new BorderLayout(15, 15));
-        mainPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
-        mainPanel.setBackground(Color.WHITE);
+        JPanel main = new JPanel(new BorderLayout());
+        main.setBackground(new Color(245, 247, 250));
 
-        JLabel lblTitle = new JLabel("Thêm truyện mới");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        JPanel card = new JPanel(new BorderLayout(12, 12));
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(220, 220, 220)),
+                new EmptyBorder(25, 30, 25, 30)
+        ));
 
-        // ===== Form =====
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setOpaque(false);
+        JLabel lblTitle = new JLabel("Thêm truyện mới", SwingConstants.CENTER);
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitle.setForeground(new Color(0, 102, 204));
+        card.add(lblTitle, BorderLayout.NORTH);
+
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 5, 8, 5);
+        gbc.insets = new Insets(8, 6, 8, 6);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // Tên truyện
-        gbc.gridx = 0; gbc.gridy = 0;
-        formPanel.add(new JLabel("Tên truyện:"), gbc);
-        gbc.gridx = 1;
-        txtTitle = new JTextField(30);
-        formPanel.add(txtTitle, gbc);
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0; gbc.anchor = GridBagConstraints.EAST;
+        form.add(new JLabel("Tên truyện:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtTitle = new JTextField(25);
+        form.add(txtTitle, gbc);
 
-        // Trạng thái
-        gbc.gridx = 0; gbc.gridy = 1;
-        formPanel.add(new JLabel("Trạng thái:"), gbc);
-        gbc.gridx = 1;
+        // Tên tác giả
+        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0;
+        form.add(new JLabel("Tên tác giả:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtAuthorName = new JTextField(25);
+        txtAuthorName.setText(currentUser.getFullName() != null ? currentUser.getFullName() : "");
+        // Author: có thể khóa; Admin sửa được
+        if (currentUser.hasRole("AUTHOR") && !currentUser.hasRole("ADMIN")) {
+            txtAuthorName.setEditable(false);
+        }
+        form.add(txtAuthorName, gbc);
+
+        // Tình trạng
+        gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0;
+        form.add(new JLabel("Tình trạng:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
         cboStatus = new JComboBox<>(new String[]{"ONGOING", "COMPLETED", "DROPPED"});
-        formPanel.add(cboStatus, gbc);
+        form.add(cboStatus, gbc);
 
-        // Ảnh bìa
-        gbc.gridx = 0; gbc.gridy = 2;
-        gbc.anchor = GridBagConstraints.NORTH;
-        formPanel.add(new JLabel("Ảnh bìa:"), gbc);
+        // Thể loại (chọn nhiều)
+        gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0; gbc.anchor = GridBagConstraints.NORTH;
+        form.add(new JLabel("Thể loại:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1; gbc.anchor = GridBagConstraints.WEST;
+        genreListModel = new DefaultListModel<>();
+        listGenres = new JList<>(genreListModel);
+        listGenres.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        listGenres.setVisibleRowCount(6);
+        JScrollPane scrollGenre = new JScrollPane(listGenres);
+        scrollGenre.setPreferredSize(new Dimension(280, 110));
+        form.add(scrollGenre, gbc);
 
-        gbc.gridx = 1;
-        gbc.fill = GridBagConstraints.NONE;
-
-        JPanel coverChoosePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        coverChoosePanel.setOpaque(false);
-
-        lblCoverPreview = new JLabel("Chưa chọn ảnh");
-        lblCoverPreview.setPreferredSize(new Dimension(100, 130));
-        lblCoverPreview.setHorizontalAlignment(SwingConstants.CENTER);
-        lblCoverPreview.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
-        lblCoverPreview.setOpaque(true);
-        lblCoverPreview.setBackground(new Color(245, 245, 245));
-
-        JButton btnChooseCover = new JButton("Chọn ảnh...");
-        btnChooseCover.setFocusPainted(false);
-        btnChooseCover.addActionListener(e -> chooseCover());
-
-        coverChoosePanel.add(lblCoverPreview);
-        coverChoosePanel.add(btnChooseCover);
-        formPanel.add(coverChoosePanel, gbc);
+        JLabel hint = new JLabel("Giữ Ctrl (hoặc Cmd) để chọn nhiều thể loại");
+        hint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        hint.setForeground(Color.GRAY);
+        gbc.gridx = 1; gbc.gridy = 4;
+        form.add(hint, gbc);
 
         // Mô tả
-        gbc.gridx = 0; gbc.gridy = 3;
-        gbc.anchor = GridBagConstraints.NORTH;
-        formPanel.add(new JLabel("Mô tả:"), gbc);
-
-        gbc.gridx = 1;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1.0;
-
-        txtDescription = new JTextArea(8, 30);
+        gbc.gridx = 0; gbc.gridy = 5; gbc.anchor = GridBagConstraints.NORTH;
+        form.add(new JLabel("Mô tả:"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.BOTH; gbc.weighty = 1;
+        txtDescription = new JTextArea(6, 25);
         txtDescription.setLineWrap(true);
         txtDescription.setWrapStyleWord(true);
+        form.add(new JScrollPane(txtDescription), gbc);
 
-        formPanel.add(new JScrollPane(txtDescription), gbc);
+        card.add(form, BorderLayout.CENTER);
 
-        // ===== Buttons =====
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
-        buttonPanel.setOpaque(false);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 8));
+        buttons.setOpaque(false);
 
         JButton btnSave = new JButton("Lưu truyện");
+        btnSave.setPreferredSize(new Dimension(130, 40));
         btnSave.setBackground(new Color(0, 153, 76));
         btnSave.setForeground(Color.WHITE);
         btnSave.setFocusPainted(false);
+        btnSave.setBorderPainted(false);
+        btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnSave.addActionListener(e -> saveStory());
 
-        JButton btnCancel = new JButton("Hủy");
-        btnCancel.setFocusPainted(false);
-        btnCancel.addActionListener(e -> {
+        JButton btnBack = new JButton("Hủy");
+        btnBack.setPreferredSize(new Dimension(100, 40));
+        btnBack.setFocusPainted(false);
+        btnBack.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnBack.addActionListener(e -> {
             new AuthorStoryFrame().setVisible(true);
             this.dispose();
         });
 
-        buttonPanel.add(btnSave);
-        buttonPanel.add(btnCancel);
+        buttons.add(btnSave);
+        buttons.add(btnBack);
+        card.add(buttons, BorderLayout.SOUTH);
 
-        mainPanel.add(lblTitle, BorderLayout.NORTH);
-        mainPanel.add(formPanel, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-
-        add(mainPanel);
+        JPanel wrap = new JPanel(new GridBagLayout());
+        wrap.setOpaque(false);
+        wrap.add(card);
+        main.add(wrap, BorderLayout.CENTER);
+        add(main);
     }
 
-    private void chooseCover() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                "Ảnh (jpg, png, jpeg)", "jpg", "png", "jpeg"));
-
-        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-        File file = chooser.getSelectedFile();
-        selectedCoverPath = file.getAbsolutePath();
-
-        ImageIcon icon = new ImageIcon(selectedCoverPath);
-        Image img = icon.getImage().getScaledInstance(100, 130, Image.SCALE_SMOOTH);
-        lblCoverPreview.setIcon(new ImageIcon(img));
-        lblCoverPreview.setText("");
-    }
-
-    private String saveCoverFile(int storyId) {
-        if (selectedCoverPath == null) return null;
-
-        try {
-            File coversDir = new File("covers");
-            if (!coversDir.exists()) coversDir.mkdir();
-
-            File src = new File(selectedCoverPath);
-            String ext = src.getName().substring(src.getName().lastIndexOf('.'));
-
-            String newName = "cover_" + storyId + "_" + System.currentTimeMillis() + ext;
-
-            File dest = new File(coversDir, newName);
-
-            java.nio.file.Files.copy(
-                    src.toPath(),
-                    dest.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
-            );
-
-            return dest.getAbsolutePath();
-
-        } catch (Exception e) {
+    private void loadGenresToList() {
+        genreListModel.clear();
+        genreMap.clear();
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT genre_id, genre_name FROM genres WHERE is_active = 1 ORDER BY genre_name");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String name = rs.getString("genre_name");
+                genreMap.put(name, rs.getInt("genre_id"));
+                genreListModel.addElement(name);
+            }
+        } catch (SQLException e) {
             e.printStackTrace();
-            return null;
         }
     }
 
     private void saveStory() {
         String title = txtTitle.getText().trim();
-        String description = txtDescription.getText().trim();
+        String authorName = txtAuthorName.getText().trim();
         String status = (String) cboStatus.getSelectedItem();
+        String description = txtDescription.getText().trim();
+        List<String> selectedGenres = listGenres.getSelectedValuesList();
 
         if (title.isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Vui lòng nhập tên truyện!",
-                    "Lỗi",
-                    JOptionPane.WARNING_MESSAGE
-            );
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập tên truyện!");
+            return;
+        }
+        if (selectedGenres.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng chọn ít nhất 1 thể loại!");
             return;
         }
 
-        String slug = toSlug(title);
+        // slug đơn giản
+        String slug = title.toLowerCase()
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("\\s+", "-");
 
         String sql = "INSERT INTO stories (author_id, title, slug, description, status, moderation_status, published_at) "
                    + "VALUES (?, ?, ?, ?, ?, 'PENDING', GETDATE())";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     sql,
-                     Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setInt(1, currentUser.getUserId());
             ps.setString(2, title);
@@ -212,62 +204,31 @@ public class CreateStoryFrame extends JFrame {
             ps.setString(5, status);
 
             int rows = ps.executeUpdate();
-
             if (rows > 0) {
-
                 int newStoryId = -1;
-
                 try (ResultSet keys = ps.getGeneratedKeys()) {
-                    if (keys.next()) {
-                        newStoryId = keys.getInt(1);
+                    if (keys.next()) newStoryId = keys.getInt(1);
+                }
+
+                // Gắn nhiều thể loại
+                if (newStoryId > 0) {
+                    for (String name : selectedGenres) {
+                        Integer gid = genreMap.get(name);
+                        if (gid != null) {
+                            storyDAO.addStoryGenre(newStoryId, gid);
+                        }
                     }
                 }
 
-                // Lưu ảnh bìa nếu có
-                if (newStoryId > 0 && selectedCoverPath != null) {
-                    String coverPath = saveCoverFile(newStoryId);
-
-                    if (coverPath != null) {
-                        storyDAO.updateCoverUrl(newStoryId, coverPath);
-                    }
-                }
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Thêm truyện thành công!\nTruyện đang chờ kiểm duyệt.",
-                        "Thành công",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-
+                JOptionPane.showMessageDialog(this,
+                        "Thêm truyện thành công!\nTruyện đang chờ kiểm duyệt.\n"
+                      + "Thể loại: " + String.join(", ", selectedGenres));
                 new AuthorStoryFrame().setVisible(true);
                 this.dispose();
             }
-
         } catch (SQLException e) {
             e.printStackTrace();
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Lỗi khi thêm truyện: " + e.getMessage(),
-                    "Lỗi",
-                    JOptionPane.ERROR_MESSAGE
-            );
+            JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());
         }
-    }
-
-    // Chuyển tên truyện thành slug
-    private String toSlug(String input) {
-        String temp = Normalizer.normalize(input, Normalizer.Form.NFD);
-
-        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
-
-        temp = pattern.matcher(temp).replaceAll("");
-
-        temp = temp.toLowerCase()
-                   .replaceAll("[^a-z0-9\\s-]", "")
-                   .replaceAll("\\s+", "-")
-                   .replaceAll("-+", "-");
-
-        return temp + "-" + System.currentTimeMillis();
     }
 }

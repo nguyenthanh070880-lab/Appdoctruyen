@@ -63,6 +63,7 @@ public class AuthorStoryFrame extends JFrame {
         // Table
         String[] columns = {"ID", "Tên truyện", "Trạng thái", "Kiểm duyệt", "Lượt xem", "Ngày tạo"};
         model = new DefaultTableModel(columns, 0) {
+            @Override
             public boolean isCellEditable(int r, int c) { return false; }
         };
         table = new JTable(model);
@@ -80,6 +81,7 @@ public class AuthorStoryFrame extends JFrame {
 
         JButton btnEdit = new JButton("Sửa truyện");
         JButton btnDelete = new JButton("Xóa truyện");
+        JButton btnToggleHide = new JButton("Ẩn/Hiện"); // Nút Ẩn/Hiện mới
         JButton btnManageChapter = new JButton("Quản lý chương");
         JButton btnRefresh = new JButton("Làm mới");
         JButton btnBack = new JButton("← Trang chủ");
@@ -88,8 +90,13 @@ public class AuthorStoryFrame extends JFrame {
         btnDelete.setForeground(Color.WHITE);
         btnDelete.setBorderPainted(false);
 
+        btnToggleHide.setBackground(new Color(108, 117, 125));
+        btnToggleHide.setForeground(Color.WHITE);
+        btnToggleHide.setBorderPainted(false);
+
         btnEdit.setFocusPainted(false);
         btnDelete.setFocusPainted(false);
+        btnToggleHide.setFocusPainted(false);
         btnManageChapter.setFocusPainted(false);
         btnRefresh.setFocusPainted(false);
         btnBack.setFocusPainted(false);
@@ -102,6 +109,43 @@ public class AuthorStoryFrame extends JFrame {
             }
             new EditStoryFrame((int) table.getValueAt(row, 0)).setVisible(true);
             this.dispose();
+        });
+
+        // Xử lý sự kiện Ẩn / Hiện truyện
+        btnToggleHide.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row < 0) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn một truyện để Ẩn/Hiện!");
+                return;
+            }
+
+            int storyId = (int) table.getValueAt(row, 0);
+            String currentStatus = (String) table.getValueAt(row, 2);
+
+            // Chuyển đổi trạng thái giữa 'HIDDEN' và 'PUBLISHED' (hoặc 'ONGOING')
+            String newStatus = "HIDDEN".equalsIgnoreCase(currentStatus) ? "ONGOING" : "HIDDEN";
+            String actionName = "HIDDEN".equalsIgnoreCase(newStatus) ? "ẩn" : "hiện";
+
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "Bạn có chắc muốn " + actionName + " truyện này?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (confirm != JOptionPane.YES_OPTION) return;
+
+            String sql = "UPDATE stories SET status = ?, updated_at = GETDATE() WHERE story_id = ? AND author_id = ?";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, newStatus);
+                ps.setInt(2, storyId);
+                ps.setInt(3, currentUser.getUserId());
+
+                int updatedRows = ps.executeUpdate();
+                if (updatedRows > 0) {
+                    JOptionPane.showMessageDialog(this, "Đã " + actionName + " truyện thành công!");
+                    loadStories();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Lỗi khi cập nhật trạng thái truyện!");
+            }
         });
 
         btnDelete.addActionListener(e -> {
@@ -146,6 +190,7 @@ public class AuthorStoryFrame extends JFrame {
         });
 
         bottomPanel.add(btnEdit);
+        bottomPanel.add(btnToggleHide); // Thêm nút vào Panel
         bottomPanel.add(btnDelete);
         bottomPanel.add(btnManageChapter);
         bottomPanel.add(btnRefresh);

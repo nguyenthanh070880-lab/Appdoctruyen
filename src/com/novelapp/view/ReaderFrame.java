@@ -26,6 +26,15 @@ public class ReaderFrame extends JFrame {
     private boolean darkMode = false;
     private final User currentUser;
 
+    // ===== BIẾN BỔ SUNG CHO TÍNH NĂNG PHÂN TRANG =====
+    private String fullContent = "";
+    private int currentPage = 0;
+    private int charsPerPage = 1200; // Số ký tự mỗi trang
+    private boolean pageMode = true; // true = Phân trang, false = Cuộn hết
+    private JLabel lblPageInfo;
+    private JButton btnPagePrev;
+    private JButton btnPageNext;
+
     public ReaderFrame(int chapterId) {
         this.currentUser = SessionManager.getCurrentUser();
         this.chapter = chapterDAO.findById(chapterId);
@@ -68,12 +77,14 @@ public class ReaderFrame extends JFrame {
         JButton btnZoomOut = createHeaderButton("A-");
         JButton btnZoomIn = createHeaderButton("A+");
         JButton btnTheme = createHeaderButton("🌙 Tối");
+        JButton btnTogglePage = createHeaderButton("📄 Phân trang");
         JButton btnReport = createHeaderButton("🚩 Báo cáo");
         JButton btnBack = createHeaderButton("Quay lại");
 
         btnZoomOut.addActionListener(e -> changeFontSize(-1.5f));
         btnZoomIn.addActionListener(e -> changeFontSize(1.5f));
         btnTheme.addActionListener(e -> toggleTheme(btnTheme));
+        btnTogglePage.addActionListener(e -> togglePageMode(btnTogglePage));
         btnReport.addActionListener(e -> showReportChapterDialog());
         btnBack.addActionListener(e -> {
             saveScrollPosition();
@@ -84,6 +95,7 @@ public class ReaderFrame extends JFrame {
         controlPanel.add(btnZoomOut);
         controlPanel.add(btnZoomIn);
         controlPanel.add(btnTheme);
+        controlPanel.add(btnTogglePage);
         controlPanel.add(btnReport);
         controlPanel.add(btnBack);
 
@@ -98,14 +110,16 @@ public class ReaderFrame extends JFrame {
         txtContent.setEditable(false);
         txtContent.setBorder(new EmptyBorder(25, 40, 25, 40));
         txtContent.setBackground(Color.WHITE);
-        updateContent();
 
         scrollPane = new JScrollPane(txtContent);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(22);
 
+        // Nạp và hiển thị nội dung chương
+        updateContent();
+
         // ===== FOOTER =====
-        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 12));
+        JPanel footerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 12));
         footerPanel.setBackground(new Color(245, 247, 250));
         footerPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(220, 220, 220)));
 
@@ -123,8 +137,28 @@ public class ReaderFrame extends JFrame {
             goToNextChapter();
         });
 
+        // Điều khiển phân trang
+        btnPagePrev = new JButton("◀ Trang");
+        btnPageNext = new JButton("Trang ▶");
+        styleNavButton(btnPagePrev);
+        styleNavButton(btnPageNext);
+        btnPagePrev.setPreferredSize(new Dimension(100, 35));
+        btnPageNext.setPreferredSize(new Dimension(100, 35));
+
+        btnPagePrev.addActionListener(e -> goPrevPage());
+        btnPageNext.addActionListener(e -> goNextPage());
+
+        lblPageInfo = new JLabel("Trang 1 / 1");
+        lblPageInfo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
         footerPanel.add(btnPrev);
+        footerPanel.add(btnPagePrev);
+        footerPanel.add(lblPageInfo);
+        footerPanel.add(btnPageNext);
         footerPanel.add(btnNext);
+
+        // Cập nhật trạng thái hiển thị của các nút phân trang ban đầu
+        showPage();
 
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(scrollPane, BorderLayout.CENTER);
@@ -135,18 +169,35 @@ public class ReaderFrame extends JFrame {
     private JButton createHeaderButton(String text) {
         JButton btn = new JButton(text);
         btn.setFocusPainted(false);
-        btn.setBackground(new Color(255, 255, 255, 30));
+        btn.setOpaque(true);
+        btn.setContentAreaFilled(true);
+        btn.setBackground(new Color(0, 90, 180));
         btn.setForeground(Color.WHITE);
-        btn.setBorder(BorderFactory.createLineBorder(new Color(255, 255, 255, 80)));
+        btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 220, 255)),
+                BorderFactory.createEmptyBorder(4, 10, 4, 10)
+        ));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                btn.setBackground(new Color(0, 120, 210));
+            }
+
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                btn.setBackground(new Color(0, 90, 180));
+            }
+        });
         return btn;
     }
 
     private void styleNavButton(JButton btn) {
-        btn.setPreferredSize(new Dimension(150, 40));
+        btn.setPreferredSize(new Dimension(140, 38));
         btn.setFocusPainted(false);
         btn.setBackground(Color.WHITE);
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
@@ -165,13 +216,97 @@ public class ReaderFrame extends JFrame {
         }
     }
 
+    private void togglePageMode(JButton btnToggle) {
+        pageMode = !pageMode;
+        if (pageMode) {
+            btnToggle.setText("📄 Phân trang");
+            btnPagePrev.setVisible(true);
+            btnPageNext.setVisible(true);
+            lblPageInfo.setVisible(true);
+            showPage();
+        } else {
+            btnToggle.setText("📜 Cuộn hết");
+            btnPagePrev.setVisible(false);
+            btnPageNext.setVisible(false);
+            lblPageInfo.setVisible(false);
+            txtContent.setText(fullContent);
+            txtContent.setCaretPosition(0);
+        }
+    }
+
     private void updateTitle() {
         lblTitle.setText("Chương " + (int) chapter.getChapterNumber() + ": " + chapter.getTitle());
     }
 
     private void updateContent() {
-        txtContent.setText(chapter.getContent() != null ? chapter.getContent() : "Chưa có nội dung.");
+        fullContent = chapter.getContent() != null ? chapter.getContent() : "Chưa có nội dung.";
+        currentPage = 0;
+        if (pageMode) {
+            showPage();
+        } else {
+            txtContent.setText(fullContent);
+            txtContent.setCaretPosition(0);
+        }
+    }
+
+    // ===== HÀM XỬ LÝ PHÂN TRANG =====
+    private int getTotalPages() {
+        if (fullContent == null || fullContent.isEmpty()) {
+            return 1;
+        }
+        return Math.max(1, (int) Math.ceil((double) fullContent.length() / charsPerPage));
+    }
+
+    private void showPage() {
+        if (!pageMode) {
+            return;
+        }
+
+        int total = getTotalPages();
+        if (currentPage < 0) {
+            currentPage = 0;
+        }
+        if (currentPage >= total) {
+            currentPage = total - 1;
+        }
+
+        int start = currentPage * charsPerPage;
+        int end = Math.min(start + charsPerPage, fullContent.length());
+
+        // Cắt ở vị trí khoảng trắng gần nhất để không bị ngắt giữa chừng 1 từ
+        if (end < fullContent.length()) {
+            int space = fullContent.lastIndexOf(' ', end);
+            if (space > start + charsPerPage / 2) {
+                end = space;
+            }
+        }
+
+        txtContent.setText(fullContent.substring(start, end).trim());
         txtContent.setCaretPosition(0);
+
+        if (lblPageInfo != null) {
+            lblPageInfo.setText("Trang " + (currentPage + 1) + " / " + total);
+        }
+        if (btnPagePrev != null) {
+            btnPagePrev.setEnabled(currentPage > 0);
+        }
+        if (btnPageNext != null) {
+            btnPageNext.setEnabled(currentPage < total - 1);
+        }
+    }
+
+    private void goPrevPage() {
+        if (currentPage > 0) {
+            currentPage--;
+            showPage();
+        }
+    }
+
+    private void goNextPage() {
+        if (currentPage < getTotalPages() - 1) {
+            currentPage++;
+            showPage();
+        }
     }
 
     private void updateNavigationButtons() {
@@ -183,12 +318,16 @@ public class ReaderFrame extends JFrame {
 
     private void goToPreviousChapter() {
         Chapter prev = chapterDAO.getPreviousChapter(chapter.getStoryId(), chapter.getChapterNumber());
-        if (prev != null) handleChapterAccess(prev);
+        if (prev != null) {
+            handleChapterAccess(prev);
+        }
     }
 
     private void goToNextChapter() {
         Chapter next = chapterDAO.getNextChapter(chapter.getStoryId(), chapter.getChapterNumber());
-        if (next != null) handleChapterAccess(next);
+        if (next != null) {
+            handleChapterAccess(next);
+        }
     }
 
     private void handleChapterAccess(Chapter targetChapter) {
@@ -207,7 +346,9 @@ public class ReaderFrame extends JFrame {
         int choice = JOptionPane.showConfirmDialog(this,
                 "Chương này cần " + price + " Coin.\nSố dư: " + balance + " Coin\nMở khóa?",
                 "Mở khóa chương", JOptionPane.YES_NO_OPTION);
-        if (choice != JOptionPane.YES_OPTION) return;
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
         if (balance < price) {
             JOptionPane.showMessageDialog(this, "Không đủ Coin!");
             return;
@@ -231,23 +372,28 @@ public class ReaderFrame extends JFrame {
 
     private void changeFontSize(float delta) {
         fontSize += delta;
-        if (fontSize < 13f) fontSize = 13f;
-        if (fontSize > 28f) fontSize = 28f;
+        if (fontSize < 13f) {
+            fontSize = 13f;
+        }
+        if (fontSize > 28f) {
+            fontSize = 28f;
+        }
         txtContent.setFont(txtContent.getFont().deriveFont(fontSize));
     }
 
     private void saveReadingHistory() {
-        if (currentUser == null) return;
+        if (currentUser == null) {
+            return;
+        }
         String sql = "MERGE reading_history AS target "
-                   + "USING (SELECT ? AS user_id, ? AS story_id, ? AS chapter_id) AS source "
-                   + "ON target.user_id = source.user_id AND target.story_id = source.story_id "
-                   + "WHEN MATCHED THEN "
-                   + "  UPDATE SET chapter_id = source.chapter_id, last_read_at = GETDATE() "
-                   + "WHEN NOT MATCHED THEN "
-                   + "  INSERT (user_id, story_id, chapter_id, last_read_at) "
-                   + "  VALUES (source.user_id, source.story_id, source.chapter_id, GETDATE());";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                + "USING (SELECT ? AS user_id, ? AS story_id, ? AS chapter_id) AS source "
+                + "ON target.user_id = source.user_id AND target.story_id = source.story_id "
+                + "WHEN MATCHED THEN "
+                + "  UPDATE SET chapter_id = source.chapter_id, last_read_at = GETDATE() "
+                + "WHEN NOT MATCHED THEN "
+                + "  INSERT (user_id, story_id, chapter_id, last_read_at) "
+                + "  VALUES (source.user_id, source.story_id, source.chapter_id, GETDATE());";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, currentUser.getUserId());
             ps.setInt(2, chapter.getStoryId());
             ps.setInt(3, chapter.getChapterId());
@@ -258,12 +404,13 @@ public class ReaderFrame extends JFrame {
     }
 
     private void saveScrollPosition() {
-        if (currentUser == null || chapter == null || scrollPane == null) return;
+        if (currentUser == null || chapter == null || scrollPane == null) {
+            return;
+        }
         int pos = scrollPane.getVerticalScrollBar().getValue();
         String sql = "UPDATE reading_history SET scroll_position = ?, last_read_at = GETDATE() "
-                   + "WHERE user_id = ? AND story_id = ? AND chapter_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                + "WHERE user_id = ? AND story_id = ? AND chapter_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, pos);
             ps.setInt(2, currentUser.getUserId());
             ps.setInt(3, chapter.getStoryId());
@@ -275,19 +422,20 @@ public class ReaderFrame extends JFrame {
     }
 
     private void restoreScrollPosition() {
-        if (currentUser == null || chapter == null || scrollPane == null) return;
+        if (currentUser == null || chapter == null || scrollPane == null) {
+            return;
+        }
         String sql = "SELECT scroll_position FROM reading_history "
-                   + "WHERE user_id = ? AND story_id = ? AND chapter_id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                + "WHERE user_id = ? AND story_id = ? AND chapter_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, currentUser.getUserId());
             ps.setInt(2, chapter.getStoryId());
             ps.setInt(3, chapter.getChapterId());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     int pos = rs.getInt("scroll_position");
-                    SwingUtilities.invokeLater(() ->
-                            scrollPane.getVerticalScrollBar().setValue(pos));
+                    SwingUtilities.invokeLater(()
+                            -> scrollPane.getVerticalScrollBar().setValue(pos));
                 }
             }
         } catch (SQLException e) {

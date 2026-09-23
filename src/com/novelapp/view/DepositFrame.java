@@ -36,7 +36,6 @@ public class DepositFrame extends JFrame {
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(new Color(250, 250, 250));
 
-        // Header
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(new Color(0, 102, 204));
         headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
@@ -58,7 +57,6 @@ public class DepositFrame extends JFrame {
         headerPanel.add(lblTitle, BorderLayout.WEST);
         headerPanel.add(btnBack, BorderLayout.EAST);
 
-        // Packages
         JPanel packagesPanel = new JPanel();
         packagesPanel.setLayout(new BoxLayout(packagesPanel, BoxLayout.Y_AXIS));
         packagesPanel.setBackground(Color.WHITE);
@@ -130,15 +128,18 @@ public class DepositFrame extends JFrame {
     private void processPurchase(CoinPackage pkg) {
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Xác nhận mua gói \"" + pkg.getPackageName() + "\"?\n"
-                + "Giá: " + String.format("%,d", pkg.getPriceVnd()) + " VNĐ\n"
-                + "Nhận: " + pkg.getTotalCoin() + " Coin\n\n"
-                + "(Thanh toán mô phỏng)",
+              + "Giá: " + String.format("%,d", pkg.getPriceVnd()) + " VNĐ\n"
+              + "Nhận: " + pkg.getTotalCoin() + " Coin\n\n"
+              + "(Thanh toán mô phỏng)",
                 "Xác nhận", JOptionPane.YES_NO_OPTION);
 
-        if (confirm != JOptionPane.YES_OPTION) return;
+        if (confirm != JOptionPane.YES_OPTION) {
+            return; // không tạo đơn = user không xác nhận
+        }
 
         if (mockPayment(pkg)) {
-            JOptionPane.showMessageDialog(this, "Thanh toán thành công!\nBạn đã nhận " + pkg.getTotalCoin() + " Coin.");
+            JOptionPane.showMessageDialog(this,
+                    "Thanh toán thành công!\nBạn đã nhận " + pkg.getTotalCoin() + " Coin.");
             new WalletFrame().setVisible(true);
             this.dispose();
         } else {
@@ -146,15 +147,23 @@ public class DepositFrame extends JFrame {
         }
     }
 
+    /**
+     * PENDING → cộng coin → SUCCESS
+     * Lỗi → FAILED
+     */
     private boolean mockPayment(CoinPackage pkg) {
         Connection conn = null;
+        String orderCode = "ORD" + System.currentTimeMillis();
+
         try {
             conn = DatabaseConnection.getConnection();
             conn.setAutoCommit(false);
 
-            String orderCode = "ORD" + System.currentTimeMillis();
+            // 1. Đơn PENDING
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO payment_orders (user_id, package_id, order_code, amount_vnd, coin_amount, status, payment_method) VALUES (?, ?, ?, ?, ?, 'SUCCESS', 'MOCK')")) {
+                    "INSERT INTO payment_orders "
+                  + "(user_id, package_id, order_code, amount_vnd, coin_amount, status, payment_method, created_at) "
+                  + "VALUES (?, ?, ?, ?, ?, 'PENDING', 'MOCK', GETDATE())")) {
                 ps.setInt(1, currentUser.getUserId());
                 ps.setInt(2, pkg.getPackageId());
                 ps.setString(3, orderCode);
@@ -163,15 +172,19 @@ public class DepositFrame extends JFrame {
                 ps.executeUpdate();
             }
 
+            // 2. Cộng coin
             try (PreparedStatement ps = conn.prepareStatement(
                     "UPDATE wallets SET balance = balance + ?, updated_at = GETDATE() WHERE user_id = ?")) {
                 ps.setLong(1, pkg.getTotalCoin());
                 ps.setInt(2, currentUser.getUserId());
-                ps.executeUpdate();
+                if (ps.executeUpdate() == 0) {
+                    throw new SQLException("Không cập nhật được ví (chưa có wallet?)");
+                }
             }
 
             long newBalance = 0;
-            try (PreparedStatement ps = conn.prepareStatement("SELECT balance FROM wallets WHERE user_id = ?")) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT balance FROM wallets WHERE user_id = ?")) {
                 ps.setInt(1, currentUser.getUserId());
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) newBalance = rs.getLong("balance");
@@ -179,19 +192,39 @@ public class DepositFrame extends JFrame {
             }
 
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO coin_transactions (user_id, amount, balance_after, type, description) VALUES (?, ?, ?, 'DEPOSIT', ?)")) {
+                    "INSERT INTO coin_transactions (user_id, amount, balance_after, type, description) "
+                  + "VALUES (?, ?, ?, 'DEPOSIT', ?)")) {
                 ps.setInt(1, currentUser.getUserId());
                 ps.setLong(2, pkg.getTotalCoin());
                 ps.setLong(3, newBalance);
-                ps.setString(4, "Nạp gói " + pkg.getPackageName());
+                ps.setString(4, "Nạp gói " + pkg.getPackageName() + " (" + orderCode + ")");
+                ps.executeUpdate();
+            }
+
+            // 3. SUCCESS
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE payment_orders SET status = 'SUCCESS', paid_at = GETDATE() WHERE order_code = ?")) {
+                ps.setString(1, orderCode);
                 ps.executeUpdate();
             }
 
             conn.commit();
             return true;
+
         } catch (Exception e) {
             e.printStackTrace();
-            try { if (conn != null) conn.rollback(); } catch (Exception ex) {}
+            try {
+                if (conn != null) conn.rollback();
+            } catch (Exception ignored) {}
+
+            // Đánh dấu FAILED
+            try (Connection c2 = DatabaseConnection.getConnection();
+                 PreparedStatement ps = c2.prepareStatement(
+                         "UPDATE payment_orders SET status = 'FAILED' WHERE order_code = ?")) {
+                ps.setString(1, orderCode);
+                ps.executeUpdate();
+            } catch (Exception ignored) {}
+
             return false;
         } finally {
             try {
@@ -199,7 +232,7 @@ public class DepositFrame extends JFrame {
                     conn.setAutoCommit(true);
                     conn.close();
                 }
-            } catch (Exception e) {}
+            } catch (Exception ignored) {}
         }
     }
 }

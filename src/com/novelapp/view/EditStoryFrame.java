@@ -10,6 +10,9 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.File;
 import java.sql.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class EditStoryFrame extends JFrame {
 
@@ -22,6 +25,11 @@ public class EditStoryFrame extends JFrame {
     private JLabel lblCoverPreview;
     private String selectedCoverPath = null;
 
+    // Biến cho phần Thể loại
+    private JList<String> listGenres;
+    private DefaultListModel<String> genreListModel;
+    private Map<String, Integer> genreMap = new HashMap<>();
+
     public EditStoryFrame(int storyId) {
         this.currentUser = SessionManager.getCurrentUser();
         this.storyId = storyId;
@@ -32,13 +40,14 @@ public class EditStoryFrame extends JFrame {
         }
         initComponents();
         loadStory();
+        loadGenresAndSelect(storyId);
         loadCurrentCover();
     }
 
     private void initComponents() {
         setTitle("Sửa truyện - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(600, 480);
+        setSize(600, 620);
         setLocationRelativeTo(null);
         setResizable(false);
 
@@ -55,31 +64,47 @@ public class EditStoryFrame extends JFrame {
         gbc.insets = new Insets(8, 5, 8, 5);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        // 1. Tên truyện
         gbc.gridx = 0; gbc.gridy = 0;
         formPanel.add(new JLabel("Tên truyện:"), gbc);
         gbc.gridx = 1;
         txtTitle = new JTextField(30);
         formPanel.add(txtTitle, gbc);
 
+        // 2. Trạng thái
         gbc.gridx = 0; gbc.gridy = 1;
         formPanel.add(new JLabel("Trạng thái:"), gbc);
         gbc.gridx = 1;
         cboStatus = new JComboBox<>(new String[]{"ONGOING", "COMPLETED", "DROPPED"});
         formPanel.add(cboStatus, gbc);
 
+        // 3. Thể loại
         gbc.gridx = 0; gbc.gridy = 2;
+        gbc.anchor = GridBagConstraints.NORTH;
+        formPanel.add(new JLabel("Thể loại:"), gbc);
+        gbc.gridx = 1;
+        genreListModel = new DefaultListModel<>();
+        listGenres = new JList<>(genreListModel);
+        listGenres.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        listGenres.setVisibleRowCount(5);
+        JScrollPane spGenres = new JScrollPane(listGenres);
+        spGenres.setPreferredSize(new Dimension(280, 100));
+        formPanel.add(spGenres, gbc);
+
+        // 4. Mô tả
+        gbc.gridx = 0; gbc.gridy = 3;
         gbc.anchor = GridBagConstraints.NORTH;
         formPanel.add(new JLabel("Mô tả:"), gbc);
         gbc.gridx = 1;
         gbc.fill = GridBagConstraints.BOTH;
         gbc.weighty = 1.0;
-        txtDescription = new JTextArea(8, 30);
+        txtDescription = new JTextArea(5, 30);
         txtDescription.setLineWrap(true);
         txtDescription.setWrapStyleWord(true);
         formPanel.add(new JScrollPane(txtDescription), gbc);
 
-        // Ảnh bìa
-        gbc.gridx = 0; gbc.gridy = 3;
+        // 5. Ảnh bìa
+        gbc.gridx = 0; gbc.gridy = 4;
         gbc.anchor = GridBagConstraints.NORTH;
         gbc.fill = GridBagConstraints.NONE;
         gbc.weighty = 0;
@@ -104,6 +129,7 @@ public class EditStoryFrame extends JFrame {
         coverPanel.add(btnChooseCover);
         formPanel.add(coverPanel, gbc);
 
+        // Panel Nút thao tác
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         buttonPanel.setOpaque(false);
 
@@ -130,20 +156,61 @@ public class EditStoryFrame extends JFrame {
     }
 
     private void loadStory() {
-        String sql = "SELECT title, description, status FROM stories WHERE story_id = ? AND author_id = ?";
+        String sql;
+        if (currentUser.hasRole("ADMIN")) {
+            sql = "SELECT title, description, status FROM stories WHERE story_id = ? AND is_deleted = 0";
+        } else {
+            sql = "SELECT title, description, status FROM stories WHERE story_id = ? AND author_id = ? AND is_deleted = 0";
+        }
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, storyId);
-            ps.setInt(2, currentUser.getUserId());
+            if (!currentUser.hasRole("ADMIN")) {
+                ps.setInt(2, currentUser.getUserId());
+            }
+
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     txtTitle.setText(rs.getString("title"));
                     txtDescription.setText(rs.getString("description"));
                     cboStatus.setSelectedItem(rs.getString("status"));
+                } else {
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy truyện hoặc bạn không có quyền!");
+                    new AuthorStoryFrame().setVisible(true);
+                    this.dispose();
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+    }
+
+    private void loadGenresAndSelect(int storyId) {
+        genreListModel.clear();
+        genreMap.clear();
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT genre_id, genre_name FROM genres WHERE is_active = 1 ORDER BY genre_name");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                String name = rs.getString("genre_name");
+                genreMap.put(name, rs.getInt("genre_id"));
+                genreListModel.addElement(name);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        List<Map<String, Object>> current = storyDAO.getGenreListByStoryId(storyId);
+        listGenres.clearSelection();
+        for (Map<String, Object> g : current) {
+            String name = (String) g.get("genreName");
+            int idx = genreListModel.indexOf(name);
+            if (idx >= 0) {
+                listGenres.addSelectionInterval(idx, idx);
+            }
         }
     }
 
@@ -199,8 +266,14 @@ public class EditStoryFrame extends JFrame {
             return;
         }
 
-        String sql = "UPDATE stories SET title = ?, description = ?, status = ?, updated_at = GETDATE() "
-                   + "WHERE story_id = ? AND author_id = ?";
+        String sql;
+        if (currentUser.hasRole("ADMIN")) {
+            sql = "UPDATE stories SET title = ?, description = ?, status = ?, updated_at = GETDATE() "
+                + "WHERE story_id = ?";
+        } else {
+            sql = "UPDATE stories SET title = ?, description = ?, status = ?, updated_at = GETDATE() "
+                + "WHERE story_id = ? AND author_id = ?";
+        }
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -209,11 +282,28 @@ public class EditStoryFrame extends JFrame {
             ps.setString(2, txtDescription.getText().trim());
             ps.setString(3, (String) cboStatus.getSelectedItem());
             ps.setInt(4, storyId);
-            ps.setInt(5, currentUser.getUserId());
 
-            ps.executeUpdate();
+            if (!currentUser.hasRole("ADMIN")) {
+                ps.setInt(5, currentUser.getUserId());
+            }
 
-            // Nếu user chọn ảnh mới thì cập nhật
+            int rows = ps.executeUpdate();
+            if (rows == 0) {
+                JOptionPane.showMessageDialog(this, "Không cập nhật được (không có quyền hoặc truyện không tồn tại)!");
+                return;
+            }
+
+            // Cập nhật lại danh sách Thể loại
+            List<String> selected = listGenres.getSelectedValuesList();
+            storyDAO.clearStoryGenres(storyId);
+            for (String name : selected) {
+                Integer gid = genreMap.get(name);
+                if (gid != null) {
+                    storyDAO.addStoryGenre(storyId, gid);
+                }
+            }
+
+            // Nếu người dùng chọn ảnh mới thì copy và cập nhật path
             if (selectedCoverPath != null) {
                 try {
                     File coversDir = new File("covers");

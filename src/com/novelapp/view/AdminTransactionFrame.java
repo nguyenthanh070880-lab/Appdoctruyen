@@ -61,7 +61,10 @@ public class AdminTransactionFrame extends JFrame {
         // Table
         String[] columns = {"ID", "User", "Loại", "Số lượng", "Số dư sau", "Mô tả", "Thời gian"};
         model = new DefaultTableModel(columns, 0) {
-            public boolean isCellEditable(int r, int c) { return false; }
+            @Override
+            public boolean isCellEditable(int r, int c) { 
+                return false; 
+            }
         };
         JTable table = new JTable(model);
         table.setRowHeight(30);
@@ -74,25 +77,33 @@ public class AdminTransactionFrame extends JFrame {
         JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         bottom.setBackground(Color.WHITE);
 
-        JButton btnAdjust = new JButton("Cộng / Trừ Coin thủ công");
-        btnAdjust.setBackground(new Color(0, 153, 76));
-        btnAdjust.setForeground(Color.WHITE);
-        btnAdjust.setFocusPainted(false);
-        btnAdjust.setBorderPainted(false);
-        btnAdjust.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        JButton btnAdjust = createBtn("Cộng / Trừ Coin thủ công", new Color(0, 153, 76));
         btnAdjust.addActionListener(e -> adjustCoin());
 
-        JButton btnRefresh = new JButton("Làm mới");
-        btnRefresh.setFocusPainted(false);
+        JButton btnRefund = createBtn("Hoàn tiền (cộng Coin)", new Color(255, 152, 0));
+        btnRefund.addActionListener(e -> refundCoin());
+
+        JButton btnRefresh = createBtn("Làm mới", new Color(100, 100, 100));
         btnRefresh.addActionListener(e -> loadTransactions());
 
         bottom.add(btnAdjust);
+        bottom.add(btnRefund);
         bottom.add(btnRefresh);
 
         mainPanel.add(header, BorderLayout.NORTH);
         mainPanel.add(new JScrollPane(table), BorderLayout.CENTER);
         mainPanel.add(bottom, BorderLayout.SOUTH);
         add(mainPanel);
+    }
+
+    private JButton createBtn(String text, Color bg) {
+        JButton btn = new JButton(text);
+        btn.setBackground(bg);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
     private void loadTransactions() {
@@ -118,6 +129,7 @@ public class AdminTransactionFrame extends JFrame {
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi tải lịch sử giao dịch: " + e.getMessage());
         }
     }
 
@@ -155,57 +167,123 @@ public class AdminTransactionFrame extends JFrame {
             return;
         }
 
+        String type = amount >= 0 ? "ADMIN_ADD" : "ADMIN_DEDUCT";
+        String defaultReason = reason.isEmpty() ? "Admin điều chỉnh" : reason;
+
+        processCoinTransaction(username, amount, type, defaultReason);
+    }
+
+    private void refundCoin() {
+        JTextField txtUser = new JTextField(12);
+        JTextField txtAmount = new JTextField(10);
+        JTextField txtReason = new JTextField(20);
+
+        JPanel p = new JPanel(new GridLayout(3, 2, 8, 8));
+        p.add(new JLabel("Username:")); 
+        p.add(txtUser);
+        p.add(new JLabel("Số Coin hoàn:")); 
+        p.add(txtAmount);
+        p.add(new JLabel("Lý do hoàn:")); 
+        p.add(txtReason);
+
+        if (JOptionPane.showConfirmDialog(this, p, "Hoàn tiền cho User",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
+
+        String username = txtUser.getText().trim();
+        String amountStr = txtAmount.getText().trim();
+        String reason = txtReason.getText().trim();
+
+        if (username.isEmpty() || amountStr.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập đủ thông tin!");
+            return;
+        }
+
+        long amount;
+        try {
+            amount = Long.parseLong(amountStr);
+            if (amount <= 0) {
+                JOptionPane.showMessageDialog(this, "Số Coin hoàn trả phải lớn hơn 0!");
+                return;
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Số Coin không hợp lệ!");
+            return;
+        }
+
+        String defaultReason = reason.isEmpty() ? "Hoàn tiền từ Admin" : reason;
+
+        processCoinTransaction(username, amount, "REFUND", defaultReason);
+    }
+
+    private void processCoinTransaction(String username, long amount, String type, String description) {
         try (Connection conn = DatabaseConnection.getConnection()) {
             conn.setAutoCommit(false);
 
-            int userId = -1;
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT user_id FROM users WHERE username = ? AND is_deleted = 0")) {
-                ps.setString(1, username);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) userId = rs.getInt(1);
+            try {
+                // 1. Kiểm tra User có tồn tại hay không
+                int userId = -1;
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT user_id FROM users WHERE username = ? AND is_deleted = 0")) {
+                    ps.setString(1, username);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) userId = rs.getInt(1);
+                    }
                 }
-            }
-            if (userId < 0) {
-                JOptionPane.showMessageDialog(this, "Không tìm thấy user!");
-                return;
-            }
 
-            // Cập nhật ví
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE wallets SET balance = balance + ?, updated_at = GETDATE() WHERE user_id = ?")) {
-                ps.setLong(1, amount);
-                ps.setInt(2, userId);
-                ps.executeUpdate();
-            }
-
-            long newBalance = 0;
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT balance FROM wallets WHERE user_id = ?")) {
-                ps.setInt(1, userId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) newBalance = rs.getLong(1);
+                if (userId < 0) {
+                    JOptionPane.showMessageDialog(this, "Không tìm thấy người dùng!");
+                    conn.rollback();
+                    return;
                 }
-            }
 
-            // Ghi log
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO coin_transactions (user_id, amount, balance_after, type, description) "
-                  + "VALUES (?, ?, ?, ?, ?)")) {
-                ps.setInt(1, userId);
-                ps.setLong(2, amount);
-                ps.setLong(3, newBalance);
-                ps.setString(4, amount >= 0 ? "ADMIN_ADD" : "ADMIN_DEDUCT");
-                ps.setString(5, reason.isEmpty() ? "Admin điều chỉnh" : reason);
-                ps.executeUpdate();
-            }
+                // 2. Cập nhật Ví (Wallets)
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE wallets SET balance = balance + ?, updated_at = GETDATE() WHERE user_id = ?")) {
+                    ps.setLong(1, amount);
+                    ps.setInt(2, userId);
+                    ps.executeUpdate();
+                }
 
-            conn.commit();
-            JOptionPane.showMessageDialog(this, "Điều chỉnh thành công!\nSố dư mới: " + newBalance + " Coin");
-            loadTransactions();
+                // 3. Lấy số dư mới sau khi cập nhật
+                long newBalance = 0;
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT balance FROM wallets WHERE user_id = ?")) {
+                    ps.setInt(1, userId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) newBalance = rs.getLong(1);
+                    }
+                }
+
+                // Kiểm tra nếu số dư bị âm sau khi trừ
+                if (newBalance < 0) {
+                    JOptionPane.showMessageDialog(this, "Thao tác thất bại: Số dư tài khoản không đủ để trừ!");
+                    conn.rollback();
+                    return;
+                }
+
+                // 4. Lưu Nhật ký Giao dịch (coin_transactions)
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "INSERT INTO coin_transactions (user_id, amount, balance_after, type, description) "
+                      + "VALUES (?, ?, ?, ?, ?)")) {
+                    ps.setInt(1, userId);
+                    ps.setLong(2, amount);
+                    ps.setLong(3, newBalance);
+                    ps.setString(4, type);
+                    ps.setString(5, description);
+                    ps.executeUpdate();
+                }
+
+                conn.commit();
+                JOptionPane.showMessageDialog(this, "Thực hiện thành công!\nSố dư mới của " + username + ": " + newBalance + " Coin");
+                loadTransactions();
+
+            } catch (Exception ex) {
+                conn.rollback();
+                throw ex;
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "Lỗi hệ thống: " + e.getMessage());
         }
     }
 }

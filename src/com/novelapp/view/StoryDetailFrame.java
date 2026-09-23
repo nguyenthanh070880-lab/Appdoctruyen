@@ -5,7 +5,11 @@ import com.novelapp.model.Chapter;
 import com.novelapp.model.Story;
 import com.novelapp.model.User;
 import com.novelapp.util.SessionManager;
+
 import java.awt.Toolkit;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -35,7 +39,6 @@ public class StoryDetailFrame extends JFrame {
     public StoryDetailFrame(int storyId) {
         this.currentUser = SessionManager.getCurrentUser();
         this.story = storyDAO.findById(storyId);
-
         if (story == null) {
             JOptionPane.showMessageDialog(null, "Không tìm thấy truyện!");
             new HomeFrame().setVisible(true);
@@ -116,7 +119,6 @@ public class StoryDetailFrame extends JFrame {
         lblStatus.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblStatus.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Thể loại dạng Tag / Badge
         JPanel genreTagPanel = createGenreTagsPanel();
 
         JLabel lblMeta = new JLabel(String.format(
@@ -128,10 +130,19 @@ public class StoryDetailFrame extends JFrame {
         lblMeta.setForeground(new Color(110, 110, 110));
         lblMeta.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        JPanel actionPanel = new JPanel();
+        actionPanel.setLayout(new BoxLayout(actionPanel, BoxLayout.Y_AXIS));
         actionPanel.setOpaque(false);
         actionPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+        actionPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+
+        JPanel row1 = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
+        row1.setOpaque(false);
+        row1.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JPanel row2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
+        row2.setOpaque(false);
+        row2.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JButton btnReadNow = new JButton("📖 Đọc ngay");
         btnReadNow.setPreferredSize(new Dimension(120, 36));
@@ -141,6 +152,15 @@ public class StoryDetailFrame extends JFrame {
         btnReadNow.setBorderPainted(false);
         btnReadNow.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnReadNow.addActionListener(e -> readFirstChapter());
+
+        JButton btnContinue = new JButton("📖 Đọc tiếp");
+        btnContinue.setPreferredSize(new Dimension(120, 36));
+        btnContinue.setBackground(new Color(0, 102, 204));
+        btnContinue.setForeground(Color.WHITE);
+        btnContinue.setFocusPainted(false);
+        btnContinue.setBorderPainted(false);
+        btnContinue.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnContinue.addActionListener(e -> continueReading());
 
         btnFollow = new JButton();
         btnFollow.setPreferredSize(new Dimension(120, 36));
@@ -199,13 +219,20 @@ public class StoryDetailFrame extends JFrame {
             updateFavoriteButton();
         });
 
-        actionPanel.add(btnReadNow);
-        actionPanel.add(btnFollow);
-        actionPanel.add(btnFavorite);
-        actionPanel.add(btnRate);
-        actionPanel.add(btnShare);
-        actionPanel.add(btnReport);
-        actionPanel.add(btnBack);
+        // Hàng 1: Đọc ngay | Đọc tiếp | Theo dõi | Yêu thích
+        row1.add(btnReadNow);
+        row1.add(btnContinue);
+        row1.add(btnFollow);
+        row1.add(btnFavorite);
+
+        // Hàng 2: Đánh giá | Chia sẻ | Báo cáo | Quay lại
+        row2.add(btnRate);
+        row2.add(btnShare);
+        row2.add(btnReport);
+        row2.add(btnBack);
+
+        actionPanel.add(row1);
+        actionPanel.add(row2);
 
         infoPanel.add(lblTitle);
         infoPanel.add(Box.createVerticalStrut(10));
@@ -361,13 +388,31 @@ public class StoryDetailFrame extends JFrame {
         handleReadChapter(first);
     }
 
+    private void continueReading() {
+        String sql = "SELECT chapter_id FROM reading_history "
+                + "WHERE user_id = ? AND story_id = ?";
+        try (Connection conn = com.novelapp.config.DatabaseConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, currentUser.getUserId());
+            ps.setInt(2, story.getStoryId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    openReader(rs.getInt("chapter_id"));
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        readFirstChapter();
+    }
+
     private void shareStory() {
         String text = "Đọc truyện \"" + story.getTitle() + "\" trên NovelApp!\n"
-                + "Tác giả: " + story.getAuthorName();
+                + "Tác giả: " + (story.getAuthorName() != null ? story.getAuthorName() : "");
         Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new java.awt.datatransfer.StringSelection(text), null);
         JOptionPane.showMessageDialog(this,
-                "Đã copy link/thông tin truyện vào clipboard!\n\n" + text,
+                "Đã copy thông tin truyện vào clipboard!\n\n" + text,
                 "Chia sẻ", JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -431,12 +476,16 @@ public class StoryDetailFrame extends JFrame {
     private void changeCoverImage() {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileFilter(new FileNameExtensionFilter("Ảnh (jpg, png, jpeg)", "jpg", "png", "jpeg"));
-        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
 
         File selected = chooser.getSelectedFile();
         try {
             File coversDir = new File("covers");
-            if (!coversDir.exists()) coversDir.mkdir();
+            if (!coversDir.exists()) {
+                coversDir.mkdir();
+            }
 
             String ext = selected.getName().substring(selected.getName().lastIndexOf('.'));
             String newFileName = "cover_" + story.getStoryId() + "_" + System.currentTimeMillis() + ext;
@@ -528,7 +577,9 @@ public class StoryDetailFrame extends JFrame {
                 "Chương này cần " + price + " Coin.\nSố dư: " + balance + " Coin\nMở khóa?",
                 "Mở khóa chương", JOptionPane.YES_NO_OPTION);
 
-        if (choice != JOptionPane.YES_OPTION) return;
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
 
         if (balance < price) {
             JOptionPane.showMessageDialog(this, "Không đủ Coin!");
@@ -588,12 +639,18 @@ public class StoryDetailFrame extends JFrame {
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         String nameText = c.get("fullName") + " (@" + c.get("username") + ")";
-        if (isMine) nameText += "    •    Bạn";
-        if (isReply) nameText = "↳    " + nameText;
+        if (isMine) {
+            nameText += "    •    Bạn";
+        }
+        if (isReply) {
+            nameText = "↳    " + nameText;
+        }
 
         JLabel lblUser = new JLabel(nameText);
         lblUser.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        if (isMine) lblUser.setForeground(new Color(0, 120, 60));
+        if (isMine) {
+            lblUser.setForeground(new Color(0, 120, 60));
+        }
 
         JLabel lblContent = new JLabel("<html>" + c.get("content") + "</html>");
         lblContent.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -711,7 +768,9 @@ public class StoryDetailFrame extends JFrame {
         String[] stars = {"1 ★", "2 ★", "3 ★", "4 ★", "5 ★"};
         JComboBox<String> cbo = new JComboBox<>(stars);
         int cur = ratingDAO.getUserRating(currentUser.getUserId(), story.getStoryId());
-        if (cur > 0) cbo.setSelectedIndex(cur - 1);
+        if (cur > 0) {
+            cbo.setSelectedIndex(cur - 1);
+        }
 
         JTextArea review = new JTextArea(3, 25);
         review.setLineWrap(true);

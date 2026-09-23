@@ -27,10 +27,14 @@ public class SearchFrame extends JFrame {
     private final Map<String, Integer> genreMap = new HashMap<>();
 
     public SearchFrame() {
-        this(-1, null);
+        this(-1, null, null);
     }
 
     public SearchFrame(int genreId, String genreName) {
+        this(genreId, genreName, null);
+    }
+
+    public SearchFrame(int genreId, String genreName, String keyword) {
         this.currentUser = SessionManager.getCurrentUser();
         this.storyDAO = new StoryDAO();
 
@@ -50,6 +54,11 @@ public class SearchFrame extends JFrame {
             cboGenre.setSelectedItem(genreName);
         }
 
+        // Xử lý từ khóa tìm kiếm ban đầu (nếu có)
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            txtKeyword.setText(keyword.trim());
+        }
+
         // Thực hiện tìm kiếm ban đầu
         doSearch();
     }
@@ -65,7 +74,7 @@ public class SearchFrame extends JFrame {
 
         // --- Header Panel ---
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(new Color(0, 102, 204));
+        headerPanel.setBackground(new Color(88, 48, 140));
         headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
 
         JLabel lblTitle = new JLabel("🔍  Khám phá truyện");
@@ -192,7 +201,7 @@ public class SearchFrame extends JFrame {
 
     private void doSearch() {
         resultPanel.removeAll();
-        
+
         // Hiển thị trạng thái đang tải
         JLabel lblLoading = new JLabel("Đang tải dữ liệu...");
         lblLoading.setFont(new Font("Segoe UI", Font.ITALIC, 14));
@@ -254,29 +263,45 @@ public class SearchFrame extends JFrame {
     }
 
     private JPanel createStoryCard(Story story) {
-        JPanel card = new JPanel(new BorderLayout(15, 5));
+        JPanel card = new JPanel(new BorderLayout(14, 0));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(230, 230, 230)),
-                new EmptyBorder(14, 18, 14, 18)
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)
         ));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // Ảnh bìa
+        JLabel lblCover = new JLabel("No img", SwingConstants.CENTER);
+        lblCover.setPreferredSize(new Dimension(64, 85));
+        lblCover.setOpaque(true);
+        lblCover.setBackground(new Color(240, 240, 240));
+        lblCover.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+        if (story.getCoverUrl() != null && !story.getCoverUrl().isEmpty()) {
+            try {
+                ImageIcon icon = new ImageIcon(story.getCoverUrl());
+                Image img = icon.getImage().getScaledInstance(64, 85, Image.SCALE_SMOOTH);
+                lblCover.setIcon(new ImageIcon(img));
+                lblCover.setText("");
+            } catch (Exception ignored) {
+            }
+        }
 
         JPanel info = new JPanel();
         info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
         info.setOpaque(false);
 
         JLabel lblTitle = new JLabel(story.getTitle());
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
         JLabel lblAuthor = new JLabel("Tác giả: " + story.getAuthorName());
-        lblAuthor.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblAuthor.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblAuthor.setForeground(Color.GRAY);
         JLabel lblMeta = new JLabel(String.format("👁 %,d  |  %s  |  ★ %.1f",
                 story.getViewCount(), story.getStatus(), story.getRatingAvg()));
         lblMeta.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblMeta.setForeground(new Color(130, 130, 130));
+        lblMeta.setForeground(new Color(120, 120, 120));
 
         info.add(lblTitle);
         info.add(Box.createVerticalStrut(4));
@@ -284,10 +309,11 @@ public class SearchFrame extends JFrame {
         info.add(Box.createVerticalStrut(4));
         info.add(lblMeta);
 
-        JButton btn = new JButton("Xem chi tiết");
-        btn.setFocusPainted(false);
+        JButton btn = new JButton("Xem");
+        btn.setPreferredSize(new Dimension(80, 32));
         btn.setBackground(new Color(0, 102, 204));
         btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
         btn.setBorderPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.addActionListener(e -> {
@@ -295,6 +321,7 @@ public class SearchFrame extends JFrame {
             this.dispose();
         });
 
+        card.add(lblCover, BorderLayout.WEST);
         card.add(info, BorderLayout.CENTER);
         card.add(btn, BorderLayout.EAST);
         return card;

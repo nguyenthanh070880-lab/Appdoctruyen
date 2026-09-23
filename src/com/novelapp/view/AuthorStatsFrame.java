@@ -28,7 +28,7 @@ public class AuthorStatsFrame extends JFrame {
     private void initComponents() {
         setTitle("Thống kê & Doanh thu - Tác giả");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1000, 650);
+        setSize(1100, 750);
         setLocationRelativeTo(null);
 
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -56,8 +56,8 @@ public class AuthorStatsFrame extends JFrame {
         header.add(lblTitle, BorderLayout.WEST);
         header.add(btnBack, BorderLayout.EAST);
 
-        // Tổng quan
-        JPanel summaryPanel = new JPanel(new GridLayout(1, 4, 15, 0));
+        // --- 1. TỔNG QUAN (5 Thẻ Thống Kê) ---
+        JPanel summaryPanel = new JPanel(new GridLayout(1, 5, 15, 0));
         summaryPanel.setOpaque(false);
         summaryPanel.setBorder(new EmptyBorder(20, 25, 15, 25));
 
@@ -66,55 +66,82 @@ public class AuthorStatsFrame extends JFrame {
         long totalChapters = getLong(
             "SELECT COUNT(*) FROM chapters c JOIN stories s ON c.story_id = s.story_id " +
             "WHERE s.author_id = ? AND c.is_deleted = 0 AND s.is_deleted = 0");
-        long totalRevenue = getLong(
-            "SELECT ISNULL(SUM(ABS(ct.amount)), 0) FROM coin_transactions ct " +
-            "JOIN chapter_access ca ON ct.description LIKE '%' + CAST(ca.chapter_id AS VARCHAR) + '%' " +
-            "JOIN chapters c ON ca.chapter_id = c.chapter_id " +
-            "JOIN stories s ON c.story_id = s.story_id " +
-            "WHERE s.author_id = ? AND ct.type = 'UNLOCK'");
-
-        // Doanh thu đơn giản hơn: tính từ chapter_access + price
-        totalRevenue = getRevenue();
+        long totalRevenue = getRevenue();
+        long totalFollows = getTotalFollows();
 
         summaryPanel.add(createStatCard("Tổng truyện", totalStories, new Color(0, 102, 204)));
         summaryPanel.add(createStatCard("Tổng chương", totalChapters, new Color(40, 167, 69)));
         summaryPanel.add(createStatCard("Tổng lượt xem", totalViews, new Color(255, 193, 7)));
+        summaryPanel.add(createStatCard("Lượt theo dõi", totalFollows, new Color(102, 16, 242)));
         summaryPanel.add(createStatCard("Doanh thu (Coin)", totalRevenue, new Color(220, 53, 69)));
 
-        // Bảng chi tiết theo truyện
-        JPanel tablePanel = new JPanel(new BorderLayout(0, 10));
-        tablePanel.setBackground(Color.WHITE);
-        tablePanel.setBorder(new EmptyBorder(10, 25, 20, 25));
+        // --- 2. BẢNG CHI TIẾT THEO TRUYỆN ---
+        JPanel storyTablePanel = new JPanel(new BorderLayout(0, 8));
+        storyTablePanel.setBackground(Color.WHITE);
+        storyTablePanel.setBorder(new EmptyBorder(10, 15, 10, 15));
 
         JLabel lblDetail = new JLabel("Chi tiết theo từng truyện");
-        lblDetail.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblDetail.setFont(new Font("Segoe UI", Font.BOLD, 15));
 
         String[] columns = {"ID", "Tên truyện", "Lượt xem", "Số chương", "Lượt mở khóa", "Doanh thu (Coin)"};
-        DefaultTableModel model = new DefaultTableModel(columns, 0) {
+        DefaultTableModel storyModel = new DefaultTableModel(columns, 0) {
+            @Override
             public boolean isCellEditable(int r, int c) { return false; }
         };
-        JTable table = new JTable(model);
+        JTable storyTable = new JTable(storyModel);
+        setupTableStyle(storyTable);
+        storyTable.getColumnModel().getColumn(0).setMinWidth(0);
+        storyTable.getColumnModel().getColumn(0).setMaxWidth(0);
+
+        loadStoryStats(storyModel);
+
+        storyTablePanel.add(lblDetail, BorderLayout.NORTH);
+        storyTablePanel.add(new JScrollPane(storyTable), BorderLayout.CENTER);
+
+        // --- 3. BẢNG DOANH THU THEO THÁNG ---
+        JPanel monthTablePanel = new JPanel(new BorderLayout(0, 8));
+        monthTablePanel.setBackground(Color.WHITE);
+        monthTablePanel.setBorder(new EmptyBorder(10, 15, 10, 15));
+
+        JLabel lblMonth = new JLabel("Doanh thu theo tháng");
+        lblMonth.setFont(new Font("Segoe UI", Font.BOLD, 15));
+
+        String[] monthCols = {"Năm", "Tháng", "Doanh thu (Coin)"};
+        DefaultTableModel monthModel = new DefaultTableModel(monthCols, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) { return false; }
+        };
+        JTable monthTable = new JTable(monthModel);
+        setupTableStyle(monthTable);
+
+        loadMonthlyRevenue(monthModel);
+
+        monthTablePanel.add(lblMonth, BorderLayout.NORTH);
+        monthTablePanel.add(new JScrollPane(monthTable), BorderLayout.CENTER);
+
+        // --- CHIA BẢNG RA THÀNH 2 PHẦN (JSplitPane hoặc GridLayout) ---
+        JPanel tablesContainer = new JPanel(new GridLayout(1, 2, 15, 0));
+        tablesContainer.setOpaque(false);
+        tablesContainer.setBorder(new EmptyBorder(0, 25, 20, 25));
+        tablesContainer.add(storyTablePanel);
+        tablesContainer.add(monthTablePanel);
+
+        JPanel center = new JPanel(new BorderLayout());
+        center.setOpaque(false);
+        center.add(summaryPanel, BorderLayout.NORTH);
+        center.add(tablesContainer, BorderLayout.CENTER);
+
+        mainPanel.add(header, BorderLayout.NORTH);
+        mainPanel.add(center, BorderLayout.CENTER);
+        add(mainPanel);
+    }
+
+    private void setupTableStyle(JTable table) {
         table.setRowHeight(30);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         table.getTableHeader().setBackground(new Color(0, 102, 204));
         table.getTableHeader().setForeground(Color.WHITE);
-        table.getColumnModel().getColumn(0).setMinWidth(0);
-        table.getColumnModel().getColumn(0).setMaxWidth(0);
-
-        loadStoryStats(model);
-
-        tablePanel.add(lblDetail, BorderLayout.NORTH);
-        tablePanel.add(new JScrollPane(table), BorderLayout.CENTER);
-
-        JPanel center = new JPanel(new BorderLayout());
-        center.setOpaque(false);
-        center.add(summaryPanel, BorderLayout.NORTH);
-        center.add(tablePanel, BorderLayout.CENTER);
-
-        mainPanel.add(header, BorderLayout.NORTH);
-        mainPanel.add(center, BorderLayout.CENTER);
-        add(mainPanel);
     }
 
     private JPanel createStatCard(String title, long value, Color color) {
@@ -130,7 +157,7 @@ public class AuthorStatsFrame extends JFrame {
         lblTitle.setForeground(Color.GRAY);
 
         JLabel lblValue = new JLabel(String.format("%,d", value));
-        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblValue.setForeground(color);
 
         card.add(lblTitle, BorderLayout.NORTH);
@@ -151,13 +178,28 @@ public class AuthorStatsFrame extends JFrame {
         return 0;
     }
 
+    private long getTotalFollows() {
+        String sql = "SELECT COUNT(*) FROM follows f "
+                   + "JOIN stories s ON f.story_id = s.story_id "
+                   + "WHERE s.author_id = ? AND ISNULL(s.is_deleted, 0) = 0";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, currentUser.getUserId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getLong(1);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
     private long getRevenue() {
-        // Tính doanh thu = số lần mở khóa * giá coin của chương
         String sql = "SELECT ISNULL(SUM(c.price_coin), 0) "
                    + "FROM chapter_access ca "
                    + "JOIN chapters c ON ca.chapter_id = c.chapter_id "
                    + "JOIN stories s ON c.story_id = s.story_id "
-                   + "WHERE s.author_id = ? AND ca.access_type = 'PURCHASE' AND c.is_free = 0";
+                   + "WHERE s.author_id = ? AND ca.access_type = 'PURCHASE' AND ISNULL(c.is_free, 0) = 0";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, currentUser.getUserId());
@@ -173,15 +215,15 @@ public class AuthorStatsFrame extends JFrame {
     private void loadStoryStats(DefaultTableModel model) {
         model.setRowCount(0);
         String sql = "SELECT s.story_id, s.title, s.view_count, "
-                   + "(SELECT COUNT(*) FROM chapters c WHERE c.story_id = s.story_id AND c.is_deleted = 0) AS chapter_count, "
+                   + "(SELECT COUNT(*) FROM chapters c WHERE c.story_id = s.story_id AND ISNULL(c.is_deleted, 0) = 0) AS chapter_count, "
                    + "(SELECT COUNT(*) FROM chapter_access ca "
                    + " JOIN chapters c2 ON ca.chapter_id = c2.chapter_id "
                    + " WHERE c2.story_id = s.story_id AND ca.access_type = 'PURCHASE') AS unlock_count, "
                    + "(SELECT ISNULL(SUM(c3.price_coin), 0) FROM chapter_access ca2 "
                    + " JOIN chapters c3 ON ca2.chapter_id = c3.chapter_id "
-                   + " WHERE c3.story_id = s.story_id AND ca2.access_type = 'PURCHASE' AND c3.is_free = 0) AS revenue "
+                   + " WHERE c3.story_id = s.story_id AND ca2.access_type = 'PURCHASE' AND ISNULL(c3.is_free, 0) = 0) AS revenue "
                    + "FROM stories s "
-                   + "WHERE s.author_id = ? AND s.is_deleted = 0 "
+                   + "WHERE s.author_id = ? AND ISNULL(s.is_deleted, 0) = 0 "
                    + "ORDER BY s.view_count DESC";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -195,6 +237,34 @@ public class AuthorStatsFrame extends JFrame {
                         rs.getLong("view_count"),
                         rs.getInt("chapter_count"),
                         rs.getInt("unlock_count"),
+                        rs.getLong("revenue")
+                    });
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadMonthlyRevenue(DefaultTableModel monthModel) {
+        monthModel.setRowCount(0);
+        String sqlMonth = "SELECT YEAR(ca.created_at) AS y, MONTH(ca.created_at) AS m, "
+                        + "ISNULL(SUM(c.price_coin), 0) AS revenue "
+                        + "FROM chapter_access ca "
+                        + "JOIN chapters c ON ca.chapter_id = c.chapter_id "
+                        + "JOIN stories s ON c.story_id = s.story_id "
+                        + "WHERE s.author_id = ? AND ca.access_type = 'PURCHASE' AND ISNULL(c.is_free, 0) = 0 "
+                        + "GROUP BY YEAR(ca.created_at), MONTH(ca.created_at) "
+                        + "ORDER BY y DESC, m DESC";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlMonth)) {
+            ps.setInt(1, currentUser.getUserId());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    monthModel.addRow(new Object[]{
+                        rs.getInt("y"),
+                        rs.getInt("m"),
                         rs.getLong("revenue")
                     });
                 }

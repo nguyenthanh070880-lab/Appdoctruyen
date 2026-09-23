@@ -168,6 +168,65 @@ public class StoryDAO {
         }
     }
 
+    /**
+     * Ẩn hoặc hiện một bộ truyện theo storyId
+     */
+    public boolean setStoryHidden(int storyId, boolean hidden) {
+        String sql = "UPDATE stories SET is_hidden = ?, updated_at = GETDATE() WHERE story_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBoolean(1, hidden);
+            ps.setInt(2, storyId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    /**
+     * Thêm liên kết Thể loại - Truyện vào bảng story_genres
+     */
+    public void addStoryGenre(int storyId, int genreId) {
+        String sql = "IF NOT EXISTS (SELECT 1 FROM story_genres WHERE story_id = ? AND genre_id = ?) "
+                   + "INSERT INTO story_genres (story_id, genre_id) VALUES (?, ?)";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, storyId);
+            ps.setInt(2, genreId);
+            ps.setInt(3, storyId);
+            ps.setInt(4, genreId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Xóa toàn bộ thể loại của 1 truyện (Dùng khi cập nhật/sửa thể loại truyện)
+     */
+    public void clearStoryGenres(int storyId) {
+        String sql = "DELETE FROM story_genres WHERE story_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, storyId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void removeAllGenresByStoryId(int storyId) {
+        String sql = "DELETE FROM story_genres WHERE story_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, storyId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     private Story mapResultSetToStory(ResultSet rs) throws SQLException {
         Story story = new Story();
 

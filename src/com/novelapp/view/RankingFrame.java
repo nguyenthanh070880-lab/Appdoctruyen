@@ -14,7 +14,8 @@ public class RankingFrame extends JFrame {
 
     private final User currentUser;
     private final StoryDAO storyDAO = new StoryDAO();
-    private JPanel contentPanel;
+    private JPanel listPanel;
+    private JComboBox<String> cboType;
 
     public RankingFrame() {
         this.currentUser = SessionManager.getCurrentUser();
@@ -24,24 +25,24 @@ public class RankingFrame extends JFrame {
             return;
         }
         initComponents();
-        loadRanking("view");
+        loadRanking();
     }
 
     private void initComponents() {
-        setTitle("Bảng xếp hạng & Đề xuất - NovelApp");
+        setTitle("Xếp hạng & Đề xuất - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1000, 700);
+        setSize(1000, 680);
         setLocationRelativeTo(null);
 
         JPanel mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(new Color(250, 250, 250));
 
         // Header
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(new Color(0, 102, 204));
-        headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(0, 102, 204));
+        header.setBorder(new EmptyBorder(15, 25, 15, 25));
 
-        JLabel lblTitle = new JLabel("🏆  Bảng xếp hạng & Đề xuất");
+        JLabel lblTitle = new JLabel("🏆  Xếp hạng & Đề xuất");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblTitle.setForeground(Color.WHITE);
 
@@ -55,144 +56,156 @@ public class RankingFrame extends JFrame {
             this.dispose();
         });
 
-        headerPanel.add(lblTitle, BorderLayout.WEST);
-        headerPanel.add(btnBack, BorderLayout.EAST);
+        header.add(lblTitle, BorderLayout.WEST);
+        header.add(btnBack, BorderLayout.EAST);
 
-        // Tabs
-        JPanel tabPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
-        tabPanel.setBackground(Color.WHITE);
-        tabPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(220, 220, 220)));
+        // Filter
+        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
+        filterPanel.setBackground(Color.WHITE);
+        filterPanel.setBorder(new EmptyBorder(10, 20, 5, 20));
 
-        JButton btnView = createTabButton("Top Lượt xem");
-        JButton btnRating = createTabButton("Top Đánh giá");
-        JButton btnRecommend = createTabButton("Đề xuất cho bạn");
+        filterPanel.add(new JLabel("Bảng xếp hạng:"));
+        cboType = new JComboBox<>(new String[]{
+                "Lượt xem cao nhất",
+                "Đánh giá cao nhất",
+                "Đề xuất cho bạn"
+        });
+        cboType.addActionListener(e -> loadRanking());
+        filterPanel.add(cboType);
 
-        btnView.addActionListener(e -> loadRanking("view"));
-        btnRating.addActionListener(e -> loadRanking("rating"));
-        btnRecommend.addActionListener(e -> loadRanking("recommend"));
+        // List
+        listPanel = new JPanel();
+        listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
+        listPanel.setBackground(Color.WHITE);
+        listPanel.setBorder(new EmptyBorder(10, 25, 20, 25));
 
-        tabPanel.add(btnView);
-        tabPanel.add(btnRating);
-        tabPanel.add(btnRecommend);
+        JScrollPane scroll = new JScrollPane(listPanel);
+        scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.getViewport().setBackground(Color.WHITE);
 
-        // Content
-        contentPanel = new JPanel();
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBackground(Color.WHITE);
-        contentPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
-
-        JScrollPane scrollPane = new JScrollPane(contentPanel);
-        scrollPane.setBorder(null);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(18);
-
-        mainPanel.add(headerPanel, BorderLayout.NORTH);
-        
         JPanel center = new JPanel(new BorderLayout());
-        center.add(tabPanel, BorderLayout.NORTH);
-        center.add(scrollPane, BorderLayout.CENTER);
-        mainPanel.add(center, BorderLayout.CENTER);
+        center.add(filterPanel, BorderLayout.NORTH);
+        center.add(scroll, BorderLayout.CENTER);
 
+        mainPanel.add(header, BorderLayout.NORTH);
+        mainPanel.add(center, BorderLayout.CENTER);
         add(mainPanel);
     }
 
-    private JButton createTabButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        return btn;
-    }
+    private void loadRanking() {
+        listPanel.removeAll();
 
-    private void loadRanking(String type) {
-        contentPanel.removeAll();
+        String type = (String) cboType.getSelectedItem();
+        List<Story> list;
 
-        List<Story> stories;
-        String title;
-
-        switch (type) {
-            case "rating":
-                stories = storyDAO.getTopStoriesByRating(15);
-                title = "Top truyện đánh giá cao nhất";
-                break;
-            case "recommend":
-                stories = storyDAO.getRecommendedStories(15);
-                title = "Đề xuất dành cho bạn";
-                break;
-            default:
-                stories = storyDAO.getTopStoriesByView(15);
-                title = "Top truyện có lượt xem cao nhất";
+        if ("Đánh giá cao nhất".equals(type)) {
+            list = storyDAO.getTopStoriesByRating(15);
+        } else if ("Đề xuất cho bạn".equals(type)) {
+            list = storyDAO.getRecommendedStories(15);
+        } else {
+            list = storyDAO.getTopStoriesByView(15);
         }
 
-        JLabel lbl = new JLabel(title);
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contentPanel.add(lbl);
-        contentPanel.add(Box.createVerticalStrut(18));
-
-        if (stories.isEmpty()) {
-            contentPanel.add(new JLabel("Chưa có dữ liệu."));
+        if (list == null || list.isEmpty()) {
+            JLabel empty = new JLabel("Chưa có dữ liệu xếp hạng.");
+            empty.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+            empty.setForeground(Color.GRAY);
+            listPanel.add(empty);
         } else {
             int rank = 1;
-            for (Story story : stories) {
-                contentPanel.add(createRankCard(rank, story));
-                contentPanel.add(Box.createVerticalStrut(10));
-                rank++;
+            for (Story s : list) {
+                listPanel.add(createRankCard(rank++, s));
+                listPanel.add(Box.createVerticalStrut(10));
             }
         }
 
-        contentPanel.revalidate();
-        contentPanel.repaint();
+        listPanel.revalidate();
+        listPanel.repaint();
     }
 
     private JPanel createRankCard(int rank, Story story) {
-        JPanel card = new JPanel(new BorderLayout(15, 5));
+        JPanel card = new JPanel(new BorderLayout(12, 0));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(230, 230, 230)),
-                new EmptyBorder(14, 18, 14, 18)
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)
         ));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 95));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        JLabel lblRank = new JLabel("#" + rank);
+        // Số hạng
+        JLabel lblRank = new JLabel(String.format("%02d", rank));
         lblRank.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblRank.setForeground(rank <= 3 ? new Color(220, 53, 69) : new Color(100, 100, 100));
-        lblRank.setPreferredSize(new Dimension(55, 0));
+        lblRank.setPreferredSize(new Dimension(42, 40));
+        lblRank.setHorizontalAlignment(SwingConstants.CENTER);
 
+        // Ảnh bìa
+        JLabel lblCover = new JLabel("No img", SwingConstants.CENTER);
+        lblCover.setPreferredSize(new Dimension(56, 75));
+        lblCover.setOpaque(true);
+        lblCover.setBackground(new Color(240, 240, 240));
+        lblCover.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)));
+        if (story.getCoverUrl() != null && !story.getCoverUrl().isEmpty()) {
+            try {
+                ImageIcon icon = new ImageIcon(story.getCoverUrl());
+                Image img = icon.getImage().getScaledInstance(56, 75, Image.SCALE_SMOOTH);
+                lblCover.setIcon(new ImageIcon(img));
+                lblCover.setText("");
+            } catch (Exception ignored) {}
+        }
+
+        // Info
         JPanel info = new JPanel();
         info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
         info.setOpaque(false);
 
         JLabel lblTitle = new JLabel(story.getTitle());
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        JLabel lblAuthor = new JLabel("Tác giả: " + story.getAuthorName());
-        lblAuthor.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblAuthor.setForeground(Color.GRAY);
-        JLabel lblMeta = new JLabel(String.format("👁 %,d   |   ★ %.1f (%d đánh giá)",
-                story.getViewCount(), story.getRatingAvg(), story.getRatingCount()));
+
+        JLabel lblMeta = new JLabel(String.format("%s  ·  👁 %,d  ·  ★ %.1f  ·  %s",
+                story.getAuthorName() != null ? story.getAuthorName() : "N/A",
+                story.getViewCount(),
+                story.getRatingAvg(),
+                story.getStatus() != null ? story.getStatus() : ""));
         lblMeta.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblMeta.setForeground(new Color(130, 130, 130));
+        lblMeta.setForeground(Color.GRAY);
 
         info.add(lblTitle);
-        info.add(Box.createVerticalStrut(4));
-        info.add(lblAuthor);
-        info.add(Box.createVerticalStrut(4));
+        info.add(Box.createVerticalStrut(6));
         info.add(lblMeta);
 
-        JButton btn = new JButton("Xem");
-        btn.setFocusPainted(false);
-        btn.setBackground(new Color(0, 102, 204));
-        btn.setForeground(Color.WHITE);
-        btn.setBorderPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.addActionListener(e -> {
-            new StoryDetailFrame(story.getStoryId()).setVisible(true);
-            this.dispose();
+        JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        left.setOpaque(false);
+        left.add(lblRank);
+        left.add(lblCover);
+
+        JButton btnView = new JButton("Xem");
+        btnView.setPreferredSize(new Dimension(80, 32));
+        btnView.setBackground(new Color(0, 102, 204));
+        btnView.setForeground(Color.WHITE);
+        btnView.setFocusPainted(false);
+        btnView.setBorderPainted(false);
+        btnView.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnView.addActionListener(e -> openDetail(story.getStoryId()));
+
+        card.add(left, BorderLayout.WEST);
+        card.add(info, BorderLayout.CENTER);
+        card.add(btnView, BorderLayout.EAST);
+
+        card.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                openDetail(story.getStoryId());
+            }
         });
 
-        card.add(lblRank, BorderLayout.WEST);
-        card.add(info, BorderLayout.CENTER);
-        card.add(btn, BorderLayout.EAST);
         return card;
+    }
+
+    private void openDetail(int storyId) {
+        new StoryDetailFrame(storyId).setVisible(true);
+        this.dispose();
     }
 }
