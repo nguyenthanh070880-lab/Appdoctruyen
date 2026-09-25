@@ -219,7 +219,7 @@ public class HomeFrame extends JFrame {
         hotRow.setAlignmentX(Component.LEFT_ALIGNMENT);
         hotRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 210));
 
-        List<Story> hotStories = storyDAO.getTopStoriesByView(8);
+        List<Story> hotStories = storyDAO.getTopStoriesByView(5);
         if (hotStories.isEmpty()) {
             hotRow.add(new JLabel("Chưa có dữ liệu."));
         } else {

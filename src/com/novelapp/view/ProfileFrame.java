@@ -16,9 +16,9 @@ public class ProfileFrame extends JFrame {
     private JTextField txtFullName;
     private JTextField txtEmail;
     private JTextField txtPhone;
-    private JPasswordField txtOldPassword;
-    private JPasswordField txtNewPassword;
-    private JPasswordField txtConfirmPassword;
+    private JPasswordField txtOldPass;
+    private JPasswordField txtNewPass;
+    private JPasswordField txtConfirmPass;
 
     public ProfileFrame() {
         this.currentUser = SessionManager.getCurrentUser();
@@ -28,23 +28,23 @@ public class ProfileFrame extends JFrame {
             return;
         }
         initComponents();
-        loadUserInfo();
+        loadProfile();
     }
 
     private void initComponents() {
         setTitle("Hồ sơ cá nhân - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(560, 620);
+        setSize(520, 620);
         setLocationRelativeTo(null);
         setResizable(false);
 
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(new Color(245, 247, 250));
+        JPanel main = new JPanel(new BorderLayout());
+        main.setBackground(new Color(245, 247, 250));
 
         // Header
-        JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(new Color(0, 102, 204));
-        headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(new Color(0, 102, 204));
+        header.setBorder(new EmptyBorder(15, 25, 15, 25));
 
         JLabel lblTitle = new JLabel("👤  Hồ sơ cá nhân");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
@@ -60,240 +60,248 @@ public class ProfileFrame extends JFrame {
             this.dispose();
         });
 
-        headerPanel.add(lblTitle, BorderLayout.WEST);
-        headerPanel.add(btnBack, BorderLayout.EAST);
+        header.add(lblTitle, BorderLayout.WEST);
+        header.add(btnBack, BorderLayout.EAST);
 
-        // Form
-        JPanel card = new JPanel(new BorderLayout(10, 15));
+        // Card
+        JPanel card = new JPanel(new BorderLayout(12, 12));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(220, 220, 220)),
                 new EmptyBorder(25, 30, 25, 30)
         ));
 
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setOpaque(false);
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(8, 8, 8, 8);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Username (readonly)
-        gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.EAST;
-        formPanel.add(new JLabel("Username:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 1.0;
+        // Username (không sửa)
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 0;
+        form.add(new JLabel("Username:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
         JTextField txtUsername = new JTextField(currentUser.getUsername());
         txtUsername.setEditable(false);
         txtUsername.setBackground(new Color(240, 240, 240));
-        txtUsername.setPreferredSize(new Dimension(250, 36));
-        formPanel.add(txtUsername, gbc);
+        form.add(txtUsername, gbc);
 
-        // Full name
-        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0; gbc.anchor = GridBagConstraints.EAST;
-        formPanel.add(new JLabel("Họ và tên:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 1.0;
-        txtFullName = createField();
-        formPanel.add(txtFullName, gbc);
+        // Họ tên
+        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 0;
+        form.add(new JLabel("Họ và tên:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtFullName = new JTextField(20);
+        form.add(txtFullName, gbc);
 
         // Email
         gbc.gridx = 0; gbc.gridy = 2; gbc.weightx = 0;
-        formPanel.add(new JLabel("Email:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 1.0;
-        txtEmail = createField();
-        formPanel.add(txtEmail, gbc);
+        form.add(new JLabel("Email:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtEmail = new JTextField(20);
+        form.add(txtEmail, gbc);
 
-        // Phone
+        // SĐT
         gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0;
-        formPanel.add(new JLabel("Số điện thoại:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 1.0;
-        txtPhone = createField();
-        formPanel.add(txtPhone, gbc);
+        form.add(new JLabel("Số điện thoại:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtPhone = new JTextField(20);
+        form.add(txtPhone, gbc);
 
-        // Separator
+        // Đổi MK
         gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
-        formPanel.add(Box.createVerticalStrut(10), gbc);
-
-        gbc.gridy = 5;
-        JLabel lblPass = new JLabel("— Đổi mật khẩu —");
-        lblPass.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        formPanel.add(lblPass, gbc);
-
+        JLabel lblPw = new JLabel("— Đổi mật khẩu —", SwingConstants.CENTER);
+        lblPw.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        form.add(lblPw, gbc);
         gbc.gridwidth = 1;
+
+        gbc.gridx = 0; gbc.gridy = 5; gbc.weightx = 0;
+        form.add(new JLabel("Mật khẩu cũ:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtOldPass = new JPasswordField(20);
+        form.add(txtOldPass, gbc);
+
         gbc.gridx = 0; gbc.gridy = 6; gbc.weightx = 0;
-        formPanel.add(new JLabel("Mật khẩu cũ:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 1.0;
-        txtOldPassword = createPasswordField();
-        formPanel.add(txtOldPassword, gbc);
+        form.add(new JLabel("Mật khẩu mới:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtNewPass = new JPasswordField(20);
+        form.add(txtNewPass, gbc);
 
         gbc.gridx = 0; gbc.gridy = 7; gbc.weightx = 0;
-        formPanel.add(new JLabel("Mật khẩu mới:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 1.0;
-        txtNewPassword = createPasswordField();
-        formPanel.add(txtNewPassword, gbc);
+        form.add(new JLabel("Xác nhận mật khẩu:"), gbc);
+        gbc.gridx = 1; gbc.weightx = 1;
+        txtConfirmPass = new JPasswordField(20);
+        form.add(txtConfirmPass, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 8; gbc.weightx = 0;
-        formPanel.add(new JLabel("Xác nhận mật khẩu:"), gbc);
-        gbc.gridx = 1; gbc.weightx = 1.0;
-        txtConfirmPassword = createPasswordField();
-        formPanel.add(txtConfirmPassword, gbc);
+        card.add(form, BorderLayout.CENTER);
 
-        card.add(formPanel, BorderLayout.CENTER);
-
-        // Buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 5));
+        // Nút
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
         buttonPanel.setOpaque(false);
 
-        JButton btnDelete = new JButton("Xóa tài khoản");
-        btnDelete.setBackground(new Color(220, 53, 69));
-        btnDelete.setForeground(Color.WHITE);
-        btnDelete.setFocusPainted(false);
-        btnDelete.setBorderPainted(false);
-        btnDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnDelete.addActionListener(e -> deleteAccount());
-
         JButton btnSave = new JButton("Lưu thay đổi");
-        btnSave.setPreferredSize(new Dimension(140, 40));
+        btnSave.setPreferredSize(new Dimension(150, 40));
         btnSave.setBackground(new Color(0, 102, 204));
         btnSave.setForeground(Color.WHITE);
         btnSave.setFocusPainted(false);
         btnSave.setBorderPainted(false);
+        btnSave.setOpaque(true);
         btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnSave.addActionListener(e -> saveProfile());
 
-        buttonPanel.add(btnDelete);
+        JButton btnDelete = new JButton("Xóa tài khoản");
+        btnDelete.setPreferredSize(new Dimension(150, 40));
+        btnDelete.setBackground(new Color(220, 53, 69));
+        btnDelete.setForeground(Color.WHITE);
+        btnDelete.setFocusPainted(false);
+        btnDelete.setBorderPainted(false);
+        btnDelete.setOpaque(true);
+        btnDelete.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnDelete.addActionListener(e -> deleteAccount());
+
         buttonPanel.add(btnSave);
+        buttonPanel.add(btnDelete);
         card.add(buttonPanel, BorderLayout.SOUTH);
 
-        JPanel centerWrapper = new JPanel(new GridBagLayout());
-        centerWrapper.setOpaque(false);
-        centerWrapper.add(card);
+        JPanel wrap = new JPanel(new GridBagLayout());
+        wrap.setOpaque(false);
+        wrap.setBorder(new EmptyBorder(20, 20, 20, 20));
+        wrap.add(card);
 
-        mainPanel.add(headerPanel, BorderLayout.NORTH);
-        mainPanel.add(centerWrapper, BorderLayout.CENTER);
-        add(mainPanel);
+        main.add(header, BorderLayout.NORTH);
+        main.add(wrap, BorderLayout.CENTER);
+        add(main);
     }
 
-    private JTextField createField() {
-        JTextField tf = new JTextField(20);
-        tf.setPreferredSize(new Dimension(250, 36));
-        tf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tf.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                new EmptyBorder(6, 10, 6, 10)
-        ));
-        return tf;
-    }
-
-    private JPasswordField createPasswordField() {
-        JPasswordField pf = new JPasswordField(20);
-        pf.setPreferredSize(new Dimension(250, 36));
-        pf.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        pf.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200)),
-                new EmptyBorder(6, 10, 6, 10)
-        ));
-        return pf;
-    }
-
-    private void loadUserInfo() {
-        txtFullName.setText(currentUser.getFullName() != null ? currentUser.getFullName() : "");
-        txtEmail.setText(currentUser.getEmail() != null ? currentUser.getEmail() : "");
-        txtPhone.setText(currentUser.getPhone() != null ? currentUser.getPhone() : "");
+    private void loadProfile() {
+        String sql = "SELECT full_name, email, phone FROM users WHERE user_id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, currentUser.getUserId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    txtFullName.setText(rs.getString("full_name"));
+                    txtEmail.setText(rs.getString("email"));
+                    String phone = rs.getString("phone");
+                    txtPhone.setText(phone != null ? phone : "");
+                }
+            }
+        } catch (SQLException e) {
+            // Nếu chưa có cột phone → load không phone
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(
+                         "SELECT full_name, email FROM users WHERE user_id = ?")) {
+                ps.setInt(1, currentUser.getUserId());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        txtFullName.setText(rs.getString("full_name"));
+                        txtEmail.setText(rs.getString("email"));
+                    }
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     private void saveProfile() {
         String fullName = txtFullName.getText().trim();
         String email = txtEmail.getText().trim();
         String phone = txtPhone.getText().trim();
-        String oldPass = new String(txtOldPassword.getPassword());
-        String newPass = new String(txtNewPassword.getPassword());
-        String confirmPass = new String(txtConfirmPassword.getPassword());
+        String oldPass = new String(txtOldPass.getPassword());
+        String newPass = new String(txtNewPass.getPassword());
+        String confirm = new String(txtConfirmPass.getPassword());
 
         if (fullName.isEmpty() || email.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Họ tên và Email không được để trống!");
+            JOptionPane.showMessageDialog(this, "Họ tên và Email không được trống!");
             return;
         }
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = GETDATE() WHERE user_id = ?")) {
-            ps.setString(1, fullName);
-            ps.setString(2, email);
-            ps.setString(3, phone.isEmpty() ? null : phone);
-            ps.setInt(4, currentUser.getUserId());
-            ps.executeUpdate();
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            // Đổi mật khẩu nếu có nhập
+            if (!oldPass.isEmpty() || !newPass.isEmpty() || !confirm.isEmpty()) {
+                if (oldPass.isEmpty() || newPass.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Nhập đủ mật khẩu cũ và mới!");
+                    return;
+                }
+                if (!newPass.equals(confirm)) {
+                    JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!");
+                    return;
+                }
+                if (newPass.length() < 6) {
+                    JOptionPane.showMessageDialog(this, "Mật khẩu mới tối thiểu 6 ký tự!");
+                    return;
+                }
+
+                String hash = null;
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT password_hash FROM users WHERE user_id = ?")) {
+                    ps.setInt(1, currentUser.getUserId());
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) hash = rs.getString("password_hash");
+                    }
+                }
+                if (hash == null || !PasswordUtil.checkPassword(oldPass, hash)) {
+                    JOptionPane.showMessageDialog(this, "Mật khẩu cũ không đúng!");
+                    return;
+                }
+
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE users SET password_hash = ?, updated_at = GETDATE() WHERE user_id = ?")) {
+                    ps.setString(1, PasswordUtil.hashPassword(newPass));
+                    ps.setInt(2, currentUser.getUserId());
+                    ps.executeUpdate();
+                }
+            }
+
+            // Cập nhật thông tin (có phone)
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE users SET full_name = ?, email = ?, phone = ?, updated_at = GETDATE() WHERE user_id = ?")) {
+                ps.setString(1, fullName);
+                ps.setString(2, email);
+                ps.setString(3, phone.isEmpty() ? null : phone);
+                ps.setInt(4, currentUser.getUserId());
+                ps.executeUpdate();
+            } catch (SQLException ex) {
+                // Không có cột phone
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE users SET full_name = ?, email = ?, updated_at = GETDATE() WHERE user_id = ?")) {
+                    ps.setString(1, fullName);
+                    ps.setString(2, email);
+                    ps.setInt(3, currentUser.getUserId());
+                    ps.executeUpdate();
+                }
+            }
+
+            currentUser.setFullName(fullName);
+            currentUser.setEmail(email);
+            JOptionPane.showMessageDialog(this, "Đã lưu thay đổi!");
+            txtOldPass.setText("");
+            txtNewPass.setText("");
+            txtConfirmPass.setText("");
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi cập nhật thông tin!");
-            return;
+            JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());
         }
-
-        if (!oldPass.isEmpty() || !newPass.isEmpty() || !confirmPass.isEmpty()) {
-            if (oldPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin đổi mật khẩu!");
-                return;
-            }
-            if (!newPass.equals(confirmPass)) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu xác nhận không khớp!");
-                return;
-            }
-            if (newPass.length() < 6) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu mới phải có ít nhất 6 ký tự!");
-                return;
-            }
-            if (!PasswordUtil.checkPassword(oldPass, currentUser.getPasswordHash())) {
-                JOptionPane.showMessageDialog(this, "Mật khẩu cũ không đúng!");
-                return;
-            }
-
-            String newHash = PasswordUtil.hashPassword(newPass);
-            try (Connection conn = DatabaseConnection.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(
-                         "UPDATE users SET password_hash = ?, updated_at = GETDATE() WHERE user_id = ?")) {
-                ps.setString(1, newHash);
-                ps.setInt(2, currentUser.getUserId());
-                ps.executeUpdate();
-                currentUser.setPasswordHash(newHash);
-            } catch (SQLException e) {
-                e.printStackTrace();
-                JOptionPane.showMessageDialog(this, "Lỗi đổi mật khẩu!");
-                return;
-            }
-        }
-
-        currentUser.setFullName(fullName);
-        currentUser.setEmail(email);
-        currentUser.setPhone(phone);
-        SessionManager.setCurrentUser(currentUser);
-
-        JOptionPane.showMessageDialog(this, "Cập nhật hồ sơ thành công!");
-        new HomeFrame().setVisible(true);
-        this.dispose();
     }
 
     private void deleteAccount() {
         int confirm = JOptionPane.showConfirmDialog(this,
-                "Bạn có CHẮC CHẮN muốn xóa tài khoản?\nHành động này không thể hoàn tác!",
-                "Xác nhận xóa", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                "Bạn chắc chắn muốn xóa tài khoản?\nSẽ không đăng nhập được nữa.",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        String password = JOptionPane.showInputDialog(this, "Nhập mật khẩu để xác nhận xóa:");
-        if (password == null || password.isEmpty()) return;
-
-        if (!PasswordUtil.checkPassword(password, currentUser.getPasswordHash())) {
-            JOptionPane.showMessageDialog(this, "Mật khẩu không đúng!");
-            return;
-        }
-
+        String sql = "UPDATE users SET is_deleted = 1, status = 'LOCKED', updated_at = GETDATE() WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "UPDATE users SET is_deleted = 1, status = 'BANNED', updated_at = GETDATE() WHERE user_id = ?")) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, currentUser.getUserId());
-            ps.executeUpdate();
-
-            JOptionPane.showMessageDialog(this, "Tài khoản đã được xóa.\nBạn sẽ được đăng xuất.");
-            SessionManager.logout();
-            new LoginFrame().setVisible(true);
-            this.dispose();
+            if (ps.executeUpdate() > 0) {
+                JOptionPane.showMessageDialog(this, "Đã xóa tài khoản.");
+                SessionManager.logout();
+                new LoginFrame().setVisible(true);
+                this.dispose();
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Lỗi: " + e.getMessage());

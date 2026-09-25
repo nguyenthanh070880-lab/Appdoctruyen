@@ -32,9 +32,9 @@ public class AuthorStoryFrame extends JFrame {
     }
 
     private void initComponents() {
-        setTitle("Quản lý truyện - Tác giả");
+        setTitle(currentUser.hasRole("ADMIN") ? "Quản lý toàn bộ truyện - Admin" : "Quản lý truyện - Tác giả");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(1050, 620);
+        setSize(1100, 620);
         setLocationRelativeTo(null);
 
         JPanel mainPanel = new JPanel(new BorderLayout());
@@ -45,7 +45,7 @@ public class AuthorStoryFrame extends JFrame {
         headerPanel.setBackground(new Color(0, 102, 204));
         headerPanel.setBorder(new EmptyBorder(15, 25, 15, 25));
 
-        JLabel lblTitle = new JLabel("✍️  Quản lý truyện của tôi");
+        JLabel lblTitle = new JLabel(currentUser.hasRole("ADMIN") ? "📚 Quản lý tất cả truyện" : "✍️ Quản lý truyện của tôi");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblTitle.setForeground(Color.WHITE);
 
@@ -63,8 +63,20 @@ public class AuthorStoryFrame extends JFrame {
         headerPanel.add(lblTitle, BorderLayout.WEST);
         headerPanel.add(btnAdd, BorderLayout.EAST);
 
-        // Table: thêm cột Ẩn/Hiện (index 4) để lưu giá trị boolean is_hidden
-        String[] columns = {"ID", "Tên truyện", "Trạng thái", "Kiểm duyệt", "Hiển thị", "Lượt xem", "Ngày tạo"};
+        // 1. Khai báo cột linh hoạt theo Role
+        String[] columns;
+        if (currentUser.hasRole("ADMIN")) {
+            columns = new String[]{
+                "ID", "Tên truyện", "Tác giả", "Trạng thái", "Kiểm duyệt",
+                "Người duyệt", "Hiển thị", "Lượt xem", "Ngày tạo"
+            };
+        } else {
+            columns = new String[]{
+                "ID", "Tên truyện", "Tác giả", "Trạng thái", "Kiểm duyệt",
+                "Hiển thị", "Lượt xem", "Ngày tạo"
+            };
+        }
+
         model = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int r, int c) { return false; }
@@ -75,15 +87,15 @@ public class AuthorStoryFrame extends JFrame {
         table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         table.getTableHeader().setBackground(new Color(0, 102, 204));
         table.getTableHeader().setForeground(Color.WHITE);
-        
-        // Ẩn cột ID
+
+        // Ẩn cột ID (index 0)
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
 
-        // Lắng nghe sự kiện chọn dòng để đổi tên nút Ẩn/Hiện dynamically
+        // Lắng nghe sự kiện chọn dòng để đổi tên nút Ẩn/Hiện
         table.getSelectionModel().addListSelectionListener(e -> updateToggleHideButtonLabel());
 
-        // Buttons
+        // Panel nút bấm chức năng
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         bottomPanel.setBackground(Color.WHITE);
 
@@ -119,7 +131,7 @@ public class AuthorStoryFrame extends JFrame {
             this.dispose();
         });
 
-        // Xử lý sự kiện Ẩn / Hiện truyện sử dụng StoryDAO.setStoryHidden()
+        // Nút Ẩn/Hiện truyện
         btnToggleHide.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row < 0) {
@@ -128,7 +140,7 @@ public class AuthorStoryFrame extends JFrame {
             }
 
             int storyId = (int) table.getValueAt(row, 0);
-            String displayStatus = (String) table.getValueAt(row, 4);
+            String displayStatus = (String) table.getValueAt(row, getDisplayColumnIndex());
             boolean isCurrentlyHidden = "Đã ẩn".equals(displayStatus);
 
             boolean targetHiddenState = !isCurrentlyHidden;
@@ -138,7 +150,6 @@ public class AuthorStoryFrame extends JFrame {
                     "Bạn có chắc muốn " + actionName + " truyện này?", "Xác nhận", JOptionPane.YES_NO_OPTION);
             if (confirm != JOptionPane.YES_OPTION) return;
 
-            // Gọi StoryDAO để cập nhật trạng thái is_hidden
             boolean success = storyDAO.setStoryHidden(storyId, targetHiddenState);
             if (success) {
                 JOptionPane.showMessageDialog(this, "Đã " + actionName + " truyện thành công!");
@@ -148,6 +159,7 @@ public class AuthorStoryFrame extends JFrame {
             }
         });
 
+        // Nút Xóa truyện (Soft delete)
         btnDelete.addActionListener(e -> {
             int row = table.getSelectedRow();
             if (row < 0) {
@@ -160,16 +172,25 @@ public class AuthorStoryFrame extends JFrame {
                     "Xóa truyện \"" + title + "\"?", "Xác nhận", JOptionPane.YES_NO_OPTION);
             if (confirm != JOptionPane.YES_OPTION) return;
 
+            String deleteSql;
+            if (currentUser.hasRole("ADMIN")) {
+                deleteSql = "UPDATE stories SET is_deleted = 1, updated_at = GETDATE() WHERE story_id = ?";
+            } else {
+                deleteSql = "UPDATE stories SET is_deleted = 1, updated_at = GETDATE() WHERE story_id = ? AND author_id = ?";
+            }
+
             try (Connection conn = DatabaseConnection.getConnection();
-                 PreparedStatement ps = conn.prepareStatement(
-                         "UPDATE stories SET is_deleted = 1, updated_at = GETDATE() WHERE story_id = ? AND author_id = ?")) {
+                 PreparedStatement ps = conn.prepareStatement(deleteSql)) {
                 ps.setInt(1, storyId);
-                ps.setInt(2, currentUser.getUserId());
+                if (!currentUser.hasRole("ADMIN")) {
+                    ps.setInt(2, currentUser.getUserId());
+                }
                 ps.executeUpdate();
                 JOptionPane.showMessageDialog(this, "Đã xóa truyện!");
                 loadStories();
             } catch (SQLException ex) {
                 ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Lỗi khi xóa truyện: " + ex.getMessage());
             }
         });
 
@@ -202,29 +223,76 @@ public class AuthorStoryFrame extends JFrame {
         add(mainPanel);
     }
 
+    // Helper xác định vị trí cột "Hiển thị" dựa vào Role
+    private int getDisplayColumnIndex() {
+        return currentUser.hasRole("ADMIN") ? 6 : 5;
+    }
+
+    // 2. Nạp danh sách truyện theo Role
     private void loadStories() {
         model.setRowCount(0);
-        String sql = "SELECT story_id, title, status, moderation_status, ISNULL(is_hidden, 0) AS is_hidden, view_count, created_at "
-                   + "FROM stories WHERE author_id = ? AND is_deleted = 0 ORDER BY created_at DESC";
+        boolean isAdmin = currentUser.hasRole("ADMIN");
+        String sql;
+
+        if (isAdmin) {
+            sql = "SELECT s.story_id, s.title, s.status, s.moderation_status, "
+                + "ISNULL(s.is_hidden, 0) AS is_hidden, s.view_count, s.created_at, "
+                + "ISNULL(s.author_display_name, ISNULL(u.full_name, u.username)) AS author_name, "
+                + "ISNULL(app.full_name, app.username) AS approver_name "
+                + "FROM stories s "
+                + "LEFT JOIN users u ON s.author_id = u.user_id "
+                + "LEFT JOIN users app ON s.approved_by = app.user_id "
+                + "WHERE ISNULL(s.is_deleted, 0) = 0 "
+                + "ORDER BY s.created_at DESC";
+        } else {
+            sql = "SELECT s.story_id, s.title, s.status, s.moderation_status, "
+                + "ISNULL(s.is_hidden, 0) AS is_hidden, s.view_count, s.created_at, "
+                + "ISNULL(s.author_display_name, ISNULL(u.full_name, u.username)) AS author_name "
+                + "FROM stories s "
+                + "LEFT JOIN users u ON s.author_id = u.user_id "
+                + "WHERE s.author_id = ? AND ISNULL(s.is_deleted, 0) = 0 "
+                + "ORDER BY s.created_at DESC";
+        }
+
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, currentUser.getUserId());
+
+            if (!isAdmin) {
+                ps.setInt(1, currentUser.getUserId());
+            }
+
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     boolean isHidden = rs.getBoolean("is_hidden");
-                    model.addRow(new Object[]{
-                        rs.getInt("story_id"),
-                        rs.getString("title"),
-                        rs.getString("status"),
-                        rs.getString("moderation_status"),
-                        isHidden ? "Đã ẩn" : "Đang hiện",
-                        rs.getLong("view_count"),
-                        rs.getTimestamp("created_at")
-                    });
+                    if (isAdmin) {
+                        model.addRow(new Object[]{
+                            rs.getInt("story_id"),
+                            rs.getString("title"),
+                            rs.getString("author_name"),
+                            rs.getString("status"),
+                            rs.getString("moderation_status"),
+                            rs.getString("approver_name"),
+                            isHidden ? "Đã ẩn" : "Đang hiện",
+                            rs.getLong("view_count"),
+                            rs.getTimestamp("created_at")
+                        });
+                    } else {
+                        model.addRow(new Object[]{
+                            rs.getInt("story_id"),
+                            rs.getString("title"),
+                            rs.getString("author_name"),
+                            rs.getString("status"),
+                            rs.getString("moderation_status"),
+                            isHidden ? "Đã ẩn" : "Đang hiện",
+                            rs.getLong("view_count"),
+                            rs.getTimestamp("created_at")
+                        });
+                    }
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi tải danh sách truyện: " + e.getMessage());
         }
         updateToggleHideButtonLabel();
     }
@@ -232,7 +300,7 @@ public class AuthorStoryFrame extends JFrame {
     private void updateToggleHideButtonLabel() {
         int row = table.getSelectedRow();
         if (row >= 0) {
-            String displayStatus = (String) table.getValueAt(row, 4);
+            String displayStatus = (String) table.getValueAt(row, getDisplayColumnIndex());
             if ("Đã ẩn".equals(displayStatus)) {
                 btnToggleHide.setText("Hiện truyện");
             } else {

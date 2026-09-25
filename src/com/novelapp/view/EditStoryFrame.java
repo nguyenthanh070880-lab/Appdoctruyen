@@ -20,6 +20,7 @@ public class EditStoryFrame extends JFrame {
     private final int storyId;
     private final StoryDAO storyDAO = new StoryDAO();
     private JTextField txtTitle;
+    private JTextField txtAuthorName;
     private JTextArea txtDescription;
     private JComboBox<String> cboStatus;
     private JLabel lblCoverPreview;
@@ -47,7 +48,7 @@ public class EditStoryFrame extends JFrame {
     private void initComponents() {
         setTitle("Sửa truyện - NovelApp");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(600, 620);
+        setSize(600, 680);
         setLocationRelativeTo(null);
         setResizable(false);
 
@@ -65,21 +66,36 @@ public class EditStoryFrame extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         // 1. Tên truyện
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         formPanel.add(new JLabel("Tên truyện:"), gbc);
         gbc.gridx = 1;
         txtTitle = new JTextField(30);
         formPanel.add(txtTitle, gbc);
 
-        // 2. Trạng thái
-        gbc.gridx = 0; gbc.gridy = 1;
+        // 2. Tác giả
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        formPanel.add(new JLabel("Tác giả:"), gbc);
+        gbc.gridx = 1;
+        txtAuthorName = new JTextField(30);
+        if (!currentUser.hasRole("ADMIN")) {
+            txtAuthorName.setEditable(false);
+            txtAuthorName.setBackground(new Color(240, 240, 240));
+        }
+        formPanel.add(txtAuthorName, gbc);
+
+        // 3. Trạng thái
+        gbc.gridx = 0;
+        gbc.gridy = 2;
         formPanel.add(new JLabel("Trạng thái:"), gbc);
         gbc.gridx = 1;
         cboStatus = new JComboBox<>(new String[]{"ONGOING", "COMPLETED", "DROPPED"});
         formPanel.add(cboStatus, gbc);
 
-        // 3. Thể loại
-        gbc.gridx = 0; gbc.gridy = 2;
+        // 4. Thể loại
+        gbc.gridx = 0;
+        gbc.gridy = 3;
         gbc.anchor = GridBagConstraints.NORTH;
         formPanel.add(new JLabel("Thể loại:"), gbc);
         gbc.gridx = 1;
@@ -91,8 +107,9 @@ public class EditStoryFrame extends JFrame {
         spGenres.setPreferredSize(new Dimension(280, 100));
         formPanel.add(spGenres, gbc);
 
-        // 4. Mô tả
-        gbc.gridx = 0; gbc.gridy = 3;
+        // 5. Mô tả
+        gbc.gridx = 0;
+        gbc.gridy = 4;
         gbc.anchor = GridBagConstraints.NORTH;
         formPanel.add(new JLabel("Mô tả:"), gbc);
         gbc.gridx = 1;
@@ -103,8 +120,9 @@ public class EditStoryFrame extends JFrame {
         txtDescription.setWrapStyleWord(true);
         formPanel.add(new JScrollPane(txtDescription), gbc);
 
-        // 5. Ảnh bìa
-        gbc.gridx = 0; gbc.gridy = 4;
+        // 6. Ảnh bìa
+        gbc.gridx = 0;
+        gbc.gridy = 5;
         gbc.anchor = GridBagConstraints.NORTH;
         gbc.fill = GridBagConstraints.NONE;
         gbc.weighty = 0;
@@ -158,9 +176,13 @@ public class EditStoryFrame extends JFrame {
     private void loadStory() {
         String sql;
         if (currentUser.hasRole("ADMIN")) {
-            sql = "SELECT title, description, status FROM stories WHERE story_id = ? AND is_deleted = 0";
+            sql = "SELECT title, description, status, "
+                + "ISNULL(author_display_name, '') AS author_display_name "
+                + "FROM stories WHERE story_id = ? AND is_deleted = 0";
         } else {
-            sql = "SELECT title, description, status FROM stories WHERE story_id = ? AND author_id = ? AND is_deleted = 0";
+            sql = "SELECT title, description, status, "
+                + "ISNULL(author_display_name, '') AS author_display_name "
+                + "FROM stories WHERE story_id = ? AND author_id = ? AND is_deleted = 0";
         }
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -174,6 +196,7 @@ public class EditStoryFrame extends JFrame {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     txtTitle.setText(rs.getString("title"));
+                    txtAuthorName.setText(rs.getString("author_display_name"));
                     txtDescription.setText(rs.getString("description"));
                     cboStatus.setSelectedItem(rs.getString("status"));
                 } else {
@@ -260,18 +283,24 @@ public class EditStoryFrame extends JFrame {
 
     private void saveStory() {
         String title = txtTitle.getText().trim();
-
         if (title.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Tên truyện không được để trống!");
             return;
         }
 
+        String authorName = txtAuthorName.getText().trim();
+        if (authorName.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Tên tác giả không được để trống!");
+            return;
+        }
+
         String sql;
         if (currentUser.hasRole("ADMIN")) {
-            sql = "UPDATE stories SET title = ?, description = ?, status = ?, updated_at = GETDATE() "
-                + "WHERE story_id = ?";
+            sql = "UPDATE stories SET title = ?, description = ?, status = ?, "
+                + "author_display_name = ?, updated_at = GETDATE() WHERE story_id = ?";
         } else {
-            sql = "UPDATE stories SET title = ?, description = ?, status = ?, updated_at = GETDATE() "
+            sql = "UPDATE stories SET title = ?, description = ?, status = ?, "
+                + "author_display_name = ?, updated_at = GETDATE() "
                 + "WHERE story_id = ? AND author_id = ?";
         }
 
@@ -281,10 +310,11 @@ public class EditStoryFrame extends JFrame {
             ps.setString(1, title);
             ps.setString(2, txtDescription.getText().trim());
             ps.setString(3, (String) cboStatus.getSelectedItem());
-            ps.setInt(4, storyId);
+            ps.setString(4, authorName);
+            ps.setInt(5, storyId);
 
             if (!currentUser.hasRole("ADMIN")) {
-                ps.setInt(5, currentUser.getUserId());
+                ps.setInt(6, currentUser.getUserId());
             }
 
             int rows = ps.executeUpdate();
